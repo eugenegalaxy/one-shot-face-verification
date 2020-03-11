@@ -62,6 +62,7 @@ def load_metadata_short(path, names=None):
             metadata.append(IdentityMetadata_short(path, i))
     return np.array(metadata)
 
+
 database = load_metadata('test_images', names=1)
 
 print(database[1].name)

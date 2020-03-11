@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-import time
 
 import matplotlib.pyplot as plt  # Plotting tool
 from sklearn.metrics import f1_score, accuracy_score  # Evaluation
@@ -9,7 +8,6 @@ from sklearn.metrics import f1_score, accuracy_score  # Evaluation
 from sklearn.preprocessing import LabelEncoder
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import LinearSVC
-
 from sklearn.manifold import TSNE  # To plot the results of classifying
 
 from align import AlignDlib  # Face alignment method
@@ -198,21 +196,20 @@ def dist_target_to_database(database, emb_database, target, emb_target, plot=Non
         distances.append(distance(emb_database[i], emb_target[0]))
     distances = np.array(distances)
 
-    smallest_dist = np.amin(distances)
-    tmp_smallest_idx = np.where(distances == np.amin(distances))
-    smallest_idx = tmp_smallest_idx[0][0]
-    most_similar_name = database[smallest_idx].name
-    print("Target is most similar to: ", most_similar_name)
+    min_dist = np.amin(distances)
+    tmp_min_idx = np.where(distances == np.amin(distances))
+    min_idx = tmp_min_idx[0][0]
+    most_similar_name = database[min_idx].name
 
     if plot is not None:
         plt.figure(figsize=(8, 3))
-        plt.suptitle("Most similar to {0} with Distance of {1:1.3f}".format(most_similar_name, smallest_dist))
+        plt.suptitle("Most similar to {0} with Distance of {1:1.3f}".format(most_similar_name, min_dist))
         plt.subplot(121)
         plt.imshow(load_image(target[0].image_path()))
         plt.subplot(122)
-        plt.imshow(load_image(database[smallest_idx].image_path()))
+        plt.imshow(load_image(database[min_idx].image_path()))
         plt.show()
-    return distances
+    return distances, min_dist, min_idx
 
 
 # Create a Neural network model (structure from model.py)
@@ -227,7 +224,6 @@ database = load_metadata('test_images', names=1)
 emb_database = run_CNN(database, alignment_model)
 
 
-
 # plot_pair_distance_example(database, emb_database, 1, 5)
 # opt_threshold = evaluatate_training_data(database, emb_database)
 # plot_histograms(database, emb_database, opt_threshold)
@@ -236,17 +232,21 @@ emb_database = run_CNN(database, alignment_model)
 path_new_target = 'new_entries'
 new_target = load_metadata(path_new_target, names=1)
 emb_new_target = run_CNN(new_target, alignment_model)
-all_dist = dist_target_to_database(database, emb_database, new_target, emb_new_target, plot=1)
+all_dist, min_dist, min_idx = dist_target_to_database(database, emb_database, new_target, emb_new_target)
 print(all_dist)
-# DoPredict_example(7)
-# DoPredict()
 
-# plot_classifying_results(database)
+fake_thr = 0.55
 
+if min_dist > fake_thr:
+    print("Unrecognized person detected!")
+else:
+    most_similar_name = database[min_idx].name
+    print("Target recognized as " + str(most_similar_name))
+    plt.figure(figsize=(8, 3))
+    plt.suptitle("Most similar to {0} with Distance of {1:1.3f}".format(most_similar_name, min_dist))
+    plt.subplot(121)
+    plt.imshow(load_image(new_target[0].image_path()))
+    plt.subplot(122)
+    plt.imshow(load_image(database[min_idx].image_path()))
+    plt.show()
 
-# Stopped at finishing tutorial.
-# Next steps:
-# 1. Take live images
-# 2. Improve/Separate code
-# 3. Functions to process new_inputs
-# 4. Train dataset + separate program to add provided images
