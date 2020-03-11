@@ -1,5 +1,7 @@
 import numpy as np
 import os.path
+from lang_abbr_iso639_1 import languages
+import re
 
 
 class IdentityMetadata():
@@ -35,42 +37,20 @@ def load_metadata(path, names=None):
 # def add_more_metadata(metadata, new_data_path, names=None)
 
 
-class IdentityMetadata_short():
-    def __init__(self, base, file):
-        # dataset base directory
-        self.base = base
-        # image file name
-        self.file = file
-
-    def __repr__(self):
-        return self.image_path()
-
-    def image_path(self):
-        return os.path.join(self.base, self.file)
-
-
-def load_metadata_short(path, names=None):
-    metadata = []
-    x = 0  # Target counter
-    for i in sorted(os.listdir(path)):
-        x += 1
-        ext = os.path.splitext(i)[1]
-        if names is not None:
-            name = os.path.splitext(i)[0]
-            print("Target {0}: {1}".format(x, name))
-        if ext == '.jpg' or ext == '.jpeg':
-            metadata.append(IdentityMetadata_short(path, i))
-    return np.array(metadata)
-
-
-database = load_metadata('test_images', names=1)
-
-print(database[1].name)
-
-distances = [7,53,3,5,8,19,11,12,1,4,2]
-smallest_dist = np.amin(distances)
-smallest_idx = np.where(distances == np.amin(distances))
-print("smallest_idx ", smallest_idx[0][0])
-print(database)
-most_similar_name = database[smallest_idx[0][0]].name
-print("Target is most similar to: ", most_similar_name)
+def find_language_code(single_metadata, print_text=None):
+    language_found = False
+    path_no_ext = os.path.splitext(str(single_metadata))[0]  # path without file extension like .jpg
+    word_list = re.split('[/_.,:-]', str(path_no_ext))
+    for word in word_list:
+        if word.count("") == 3 and [item for item in languages if item[0] == word]:
+            lang_full = [item[1] for item in languages if item[0] == word]
+            lang = word
+            language_found = True
+            break  # If language code is found in folder name, no need to search further in file name
+            if print_text is not None:
+                print("Language code found '{0}': {1}.".format(lang, lang_full[0]))
+    if language_found is False:
+        lang = 'en'
+        if print_text is not None:
+            print("Language not found. Set to English by default.")
+    return lang, lang_full
