@@ -51,6 +51,7 @@ def find_language_code(single_metadata, print_text=None):
                 print("Language code found '{0}': {1}.".format(lang, lang_full[0]))
     if language_found is False:
         lang = 'en'
+        lang_full = 'English'
         if print_text is not None:
             print("Language not found. Set to English by default.")
     return lang, lang_full
