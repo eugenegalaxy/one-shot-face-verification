@@ -1,11 +1,10 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt  # Plotting tool
-
 from align import AlignDlib  # Face alignment method
 from model import create_model  # CNN library
 from load_dataset import load_metadata, find_language_code  # Loading training set in from folder
-# from get_webcam_image import get_webcam_image
+from camera_module import get_webcam_image
 
 
 class FaceVerification(object):
