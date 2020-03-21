@@ -55,3 +55,50 @@ def find_language_code(single_metadata, print_text=None):
         if print_text is not None:
             print("Language not found. Set to English by default.")
     return lang, lang_full
+
+
+def generate_number_imgsave(path):
+    img_list = sorted(os.listdir(path))
+    if len(img_list) == 0:
+        return '0000'  # if folder is empty -> give next image '_0000' in name
+    else:
+        for word in list(img_list):  # iterating on a copy since removing will mess things up
+            path_no_ext = os.path.splitext(str(word))[0]  # name without file extension like .jpg
+            word_list = re.split('[/_.,:-]', str(path_no_ext))  # split name by char / or _ etc...
+            if len(word_list) != 2 or word_list[0] != 'image':
+                img_list.remove(word)
+
+        img_last = img_list[-1]  # -1 -> last item in list
+        path_no_ext = os.path.splitext(str(img_last))[0]  # name without file extension like .jpg
+        word_list = re.split('[/_.,:-]', str(path_no_ext))
+        next_number = int(word_list[1]) + 1
+        next_number_str = str(next_number).zfill(4)
+        return next_number_str
+
+
+def dir_size_guard(path, limit_in_megabytes):
+    bytes_in_one_megabyte = 1048576
+    while (dir_get_size(path) / bytes_in_one_megabyte) > limit_in_megabytes:
+        file_list = sorted(os.listdir(path))
+        if len(file_list) == 0:
+            break
+        print('Directory size reached limit of {0} megabytes. Deleting file "{1}".'.format(limit_in_megabytes, file_list[0]))
+        os.remove(os.path.join(path, file_list[0]))
+
+
+def dir_get_size(path):
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(path):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            # skip if it is symbolic link
+            if not os.path.islink(fp):
+                total_size += os.path.getsize(fp)
+    return total_size
+
+
+#  CAREFUL!!! REMOVES ALL FILES IN A DIRECTORY
+def dir_clear(path):
+    file_list = sorted(os.listdir(path))
+    for file in file_list:
+        os.remove(os.path.join(path, file))
