@@ -11,7 +11,6 @@ class FaceVerification(object):
 
     landmarks_pt = 'models/landmarks.dat'
     weights_pt = 'weights/nn4.small2.v1.h5'
-    database_pt = 'target_database'
     newtarget_pt = 'new_entries'
     threshold = 0.75
 
@@ -19,7 +18,6 @@ class FaceVerification(object):
         self.nn4_small2_pretrained = create_model()  # Create a Neural network model
         self.nn4_small2_pretrained.load_weights(self.weights_pt)  # Use pre-trained weights
         self.alig_model = AlignDlib(self.landmarks_pt)  # Initialize the OpenFace face alignment utility
-        self.init_database(target_names=1)
     #     self.pipeline = rs_init_camera()
 
     # def __del__(self):
@@ -28,10 +26,8 @@ class FaceVerification(object):
 
     # ---------------------------------- PUBLIC METHODS ----------------------------------
     def doPrediction(self, plot=None):
-        # self.target_metadata = load_metadata(self.newtarget_pt)
-        # self.target_features = self.extract_features(self.target_metadata)
 
-        fresh_image = get_webcam_image(save=1)
+        fresh_image = getWebcamImage(save=1)
         # fresh_image = load_image('new_entries/person/image.jpg')
         self.target_features = self.test_extract_feature(fresh_image)
 
@@ -58,13 +54,12 @@ class FaceVerification(object):
 
     #  ---------------------------------- PRIVATE METHODS ----------------------------------
 
-    def init_database(self, target_names=None):
-        self.database_metadata = load_metadata(self.database_pt, names=target_names)
+    def init_database(self, path, target_names=None):
+        self.database_metadata = load_metadata(short_path, names=target_names)
         self.database_features = self.extract_features(self.database_metadata)
 
     def test_extract_feature(self, img):
         embedded = np.zeros(128)
-        time.sleep(1)
         img = self.align_image(img)
         img = (img / 255.).astype(np.float32)  # scale RGB values to interval [0,1]
         embedded = self.nn4_small2_pretrained.predict(np.expand_dims(img, axis=0))[0]
@@ -117,6 +112,8 @@ class FaceVerification(object):
 
 
 FV = FaceVerification()
+database_pt = 'target_database'
+FV.init_database(database_pt, target_names=1)
 FV.doPrediction(plot=1)
 
 # img1 = get_webcam_image(save=1)  # perevernutaja

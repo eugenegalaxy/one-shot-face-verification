@@ -1,11 +1,14 @@
 import cv2
+import os
+import re
 import pyrealsense2 as rs
 import numpy as np
-import matplotlib.pyplot as plt  # Plotting tool
-import time
+
+CAM_IMG_DIR = 'new_entries'
+CAM_IMG_DIR_MAX_SIZE_MB = 10  # In megabytes!!
 
 
-def get_webcam_image(save=None, plot=None):
+def getWebcamImage(save=None, plot=None):
     cap = cv2.VideoCapture(0)
 
     if not cap.isOpened():
@@ -16,17 +19,25 @@ def get_webcam_image(save=None, plot=None):
     dim = (250, int(frame.shape[0] * r))
     resized = cv2.resize(frame, dim, interpolation=cv2.INTER_AREA)
     cap.release()
+
     if save is not None:
-        cv2.imwrite('new_entries/person/image.jpg', resized)
+        path = CAM_IMG_DIR
+        slash = '/'
+        ext = '.jpg'
+        name = 'image_'
+        dir_size_guard()
+        next_nr = generate_number_imgsave()
+        full_name = path + slash + name + next_nr + ext
+        cv2.imwrite(full_name, resized)
     if plot is not None:
         cv2.namedWindow('Webcam Photo', cv2.WINDOW_AUTOSIZE)
         cv2.imshow('Webcam Photo', resized)
         cv2.waitKey()
         cv2.destroyAllWindows()
-    return resized[..., ::-1]
+    return resized
 
 
-def video_feed_TEST():
+def rs_video_feed_TEST():
     # Configure depth and color streams
     pipeline = rs.pipeline()
     config = rs.config()
@@ -85,12 +96,19 @@ def rs_capture_frame(pipeline):
     return color_image
 
 
-def getImage(save=None, plot=None):
+def rs_getImage(save=None, plot=None):
     pipe = rs_init_camera()
     image = rs_capture_frame(pipe)
     pipe.stop()
     if save is not None:
-        cv2.imwrite('new_entries/person/image.jpg', image)
+        path = CAM_IMG_DIR
+        slash = '/'
+        dir_size_guard()
+        ext = '.jpg'
+        name = 'image_'
+        next_nr = generate_number_imgsave()
+        full_name = path + slash + name + next_nr + ext
+        cv2.imwrite(full_name, image)
     if plot is not None:
         cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
         cv2.imshow('RealSense', image)
@@ -99,8 +117,48 @@ def getImage(save=None, plot=None):
     return image[..., ::-1]
 
 
-def load_image(path):
-    img = cv2.imread(path, 1)
-    return img[..., ::-1]  # Reversing from BGR to RGB
+def generate_number_imgsave(path=CAM_IMG_DIR):
+    img_list = sorted(os.listdir(path))
+    if len(img_list) == 0:
+        return '0000'  # if folder is empty -> give next image '_0000' in name
+    else:
+        for word in list(img_list):  # iterating on a copy since removing will mess things up
+            path_no_ext = os.path.splitext(str(word))[0]  # name without file extension like .jpg
+            word_list = re.split('[/_.,:-]', str(path_no_ext))  # split name by char / or _ etc...
+            if len(word_list) != 2 or word_list[0] != 'image':
+                img_list.remove(word)
+
+        img_last = img_list[-1]  # -1 -> last item in list
+        path_no_ext = os.path.splitext(str(img_last))[0]  # name without file extension like .jpg
+        word_list = re.split('[/_.,:-]', str(path_no_ext))
+        next_number = int(word_list[1]) + 1
+        next_number_str = str(next_number).zfill(4)
+        return next_number_str
 
 
+def dir_size_guard(path=CAM_IMG_DIR, limit_in_megabytes=CAM_IMG_DIR_MAX_SIZE_MB):
+    while (dir_get_size() / 1048576) > limit_in_megabytes:
+        file_list = sorted(os.listdir(path))
+        if len(file_list) == 0:
+            break
+        print('Directory size reached limit of {0} megabytes. Deleting file "{1}".'.format(limit_in_megabytes, file_list[0]))
+        os.remove(os.path.join(path, file_list[0]))
+
+
+def dir_get_size(path=CAM_IMG_DIR):
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(path):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            # skip if it is symbolic link
+            if not os.path.islink(fp):
+                total_size += os.path.getsize(fp)
+    return total_size
+
+
+#  CAREFUL!!! REMOVES ALL FILES IN A DIRECTORY
+def dir_clear(path=CAM_IMG_DIR):
+    file_list = sorted(os.listdir(path))
+    # file_list.remove(file_list[0])  # Keep one file to avoid issues with uploading empty dir to Git.
+    for file in file_list:
+        os.remove(os.path.join(path, file))
