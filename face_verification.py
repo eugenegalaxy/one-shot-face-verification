@@ -36,7 +36,11 @@ class FaceVerification(object):
     def doPrediction(self, plot=None):
 
         # fresh_image = getWebcamImage(save=1)
-        fresh_image = self.load_image('new_entries/image_0003.jpg')
+        img = 'new_entries/image_0000.jpg'
+        fresh_image = self.load_image(img)
+        if fresh_image is None:
+            print("============================================\n'{}' does not exist.".format(img))
+            quit()
         self.target_features = self.get_features_img(fresh_image)
 
         all_dist, min_dist, min_idx = self.dist_target_to_database()

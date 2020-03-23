@@ -22,16 +22,24 @@ class IdentityMetadata():
 
 def load_metadata(path, names=None):
     metadata = []
-    x = 0  # Target counter
-    for i in sorted(os.listdir(path)):
-        x += 1
-        for f in sorted(os.listdir(os.path.join(path, i))):
-            ext = os.path.splitext(f)[1]
+    counter = 0  # Target counter
+    for folder_name in sorted(os.listdir(path)):
+        counter += 1
+        for file_name in sorted(os.listdir(os.path.join(path, folder_name))):
+            ext = os.path.splitext(file_name)[1]
+
             if names is not None:
-                name = os.path.splitext(f)[0]
-                print("Target {0}: {1}".format(x, name))
+                full_name_str = str()
+                word_list = re.split(r'[`\-=~!@#$%^&*()_+\[\]{};\'\\:"|<,./<>?\s]', str(folder_name))  # split words by special chars
+                for word in word_list:
+                    if word.count("") == 3 and [item for item in languages if item[0] == word]:
+                        lang_full = [item[1] for item in languages if item[0] == word]
+                    else:
+                        full_name_str += (" " + word)
+                print(('Target {}:'.format(counter) + '\t').expandtabs(4) +
+                      ('{}'.format(full_name_str) + '\t' + ' Language: {}'.format(lang_full[0])).expandtabs(30))
             if ext == '.jpg' or ext == '.jpeg':
-                metadata.append(IdentityMetadata(path, i, f))
+                metadata.append(IdentityMetadata(path, folder_name, file_name))
     return np.array(metadata)
 
 # def add_more_metadata(metadata, new_data_path, names=None)
@@ -40,7 +48,7 @@ def load_metadata(path, names=None):
 def find_language_code(single_metadata, print_text=None):
     language_found = False
     path_no_ext = os.path.splitext(str(single_metadata))[0]  # path without file extension like .jpg
-    word_list = re.split('[/_.,:-]', str(path_no_ext))
+    word_list = re.split(r'[`\-=~!@#$%^&*()_+\[\]{};\'\\:"|<,./<>?\s]', str(path_no_ext))
     for word in word_list:
         if word.count("") == 3 and [item for item in languages if item[0] == word]:
             lang_full = [item[1] for item in languages if item[0] == word]
@@ -64,13 +72,13 @@ def generate_number_imgsave(path):
     else:
         for word in list(img_list):  # iterating on a copy since removing will mess things up
             path_no_ext = os.path.splitext(str(word))[0]  # name without file extension like .jpg
-            word_list = re.split('[/_.,:-]', str(path_no_ext))  # split name by char / or _ etc...
+            word_list = re.split(r'[`\-=~!@#$%^&*()_+\[\]{};\'\\:"|<,./<>?\s]', str(path_no_ext))
             if len(word_list) != 2 or word_list[0] != 'image':
                 img_list.remove(word)
 
         img_last = img_list[-1]  # -1 -> last item in list
-        path_no_ext = os.path.splitext(str(img_last))[0]  # name without file extension like .jpg
-        word_list = re.split('[/_.,:-]', str(path_no_ext))
+        path_no_ext = os.path.splitext(str(img_last))[0]
+        word_list = re.split(r'[`\-=~!@#$%^&*()_+\[\]{};\'\\:"|<,./<>?\s]', str(path_no_ext))
         next_number = int(word_list[1]) + 1
         next_number_str = str(next_number).zfill(4)
         return next_number_str
@@ -98,7 +106,11 @@ def dir_get_size(path):
 
 
 #  CAREFUL!!! REMOVES ALL FILES IN A DIRECTORY
-def dir_clear(path):
+def dir_clear(path, save_one_file=None):
     file_list = sorted(os.listdir(path))
-    for file in file_list:
-        os.remove(os.path.join(path, file))
+    if save_one_file is not None:
+        for file in file_list[1:]:
+            os.remove(os.path.join(path, file))
+    else:
+        for file in file_list:
+            os.remove(os.path.join(path, file))
