@@ -6,18 +6,29 @@ import re
 
 class IdentityMetadata():
     def __init__(self, base, name, file):
-        # dataset base directory
-        self.base = base
-        # identity name
-        self.name = name
-        # image file name
-        self.file = file
+
+        self.base = base  # dataset base directory
+        self.name = name  # identity name
+        self.file = file  # image file name
 
     def __repr__(self):
         return self.image_path()
 
     def image_path(self):
         return os.path.join(self.base, self.name, self.file)
+
+
+class IdentityMetadata_short():
+    def __init__(self, base, file):
+
+        self.base = base  # dataset base directory
+        self.file = file  # image file name
+
+    def __repr__(self):
+        return self.image_path()
+
+    def image_path(self):
+        return os.path.join(self.base, self.file)
 
 
 def load_metadata(path, names=None):
@@ -34,15 +45,26 @@ def load_metadata(path, names=None):
                 for word in word_list:
                     if word.count("") == 3 and [item for item in languages if item[0] == word]:
                         lang_full = [item[1] for item in languages if item[0] == word]
+                        lang_main = lang_full[0].split(';')
                     else:
                         full_name_str += (" " + word)
                 print(('Target {}:'.format(counter) + '\t').expandtabs(4) +
-                      ('{}'.format(full_name_str) + '\t' + ' Language: {}'.format(lang_full[0])).expandtabs(30))
+                      ('{}'.format(full_name_str) + '\t' + ' Language: {}'.format(lang_main[0])).expandtabs(30))
+                lang_main = ['Unknown']
             if ext == '.jpg' or ext == '.jpeg':
                 metadata.append(IdentityMetadata(path, folder_name, file_name))
     return np.array(metadata)
 
-# def add_more_metadata(metadata, new_data_path, names=None)
+
+def load_metadata_short(path, names=None):
+    metadata = []
+    counter = 0  # Target counter
+    for file_name in sorted(os.listdir(path)):
+        counter += 1
+        ext = os.path.splitext(file_name)[1]
+        if ext == '.jpg' or ext == '.jpeg':
+            metadata.append(IdentityMetadata_short(path, file_name))
+    return np.array(metadata)
 
 
 def find_language_code(single_metadata, print_text=None):

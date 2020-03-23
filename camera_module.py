@@ -69,7 +69,7 @@ def rs_video_feed_TEST():
             # Show images
             cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
             cv2.imshow('RealSense', images)
-            cv2.waitKey(1)
+            cv2.waitKey()
 
     finally:
 
@@ -81,10 +81,12 @@ def rs_init_camera():
     pipeline = rs.pipeline()
     config = rs.config()
     config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+    config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
     pipeline.start(config)
 
     for x in range(5):
         pipeline.wait_for_frames()
+
     return pipeline
 
 
@@ -97,6 +99,7 @@ def rs_capture_frame(pipeline):
 
 def rs_getImage(save=None, plot=None):
     pipe = rs_init_camera()
+    time.sleep(3)
     image = rs_capture_frame(pipe)
     pipe.stop()
     if save is not None:
@@ -113,4 +116,4 @@ def rs_getImage(save=None, plot=None):
         cv2.imshow('RealSense', image)
         cv2.waitKey()
         cv2.destroyAllWindows()
-    return image[..., ::-1]
+    return image
