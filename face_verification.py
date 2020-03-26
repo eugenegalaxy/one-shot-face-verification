@@ -47,8 +47,8 @@ class FaceVerification(object):
         if self.img_mode == GET_FRESH_CAM_IMAGE:
             fresh_image = getImage(save=1)
 
-            self.target_features = self.get_features_img(fresh_image)
-            all_dist, min_dist, min_idx = self.dist_target_to_database()
+            target_features = self.get_features_img(fresh_image)
+            all_dist, min_dist, min_idx = self.dist_target_to_database(target_features)
             listed_score = list(enumerate(all_dist, start=1))
             for item in listed_score:
                 print('Target score: {}'.format(item))
@@ -60,9 +60,9 @@ class FaceVerification(object):
             if fresh_image is None:
                 print("============================================\n'{}' does not exist or path is wrong.".format(img_path))
                 quit()
-            
-            self.target_features = self.get_features_img(fresh_image)
-            all_dist, min_dist, min_idx = self.dist_target_to_database()
+
+            target_features = self.get_features_img(fresh_image)
+            all_dist, min_dist, min_idx = self.dist_target_to_database(target_features)
             listed_score = list(enumerate(all_dist, start=1))
             for item in listed_score:
                 print('Target score: {}'.format(item))
@@ -72,8 +72,8 @@ class FaceVerification(object):
         else:
             raise ValueError('Provided img_mode is wrong. Select 0, 1 or 2 and try again.')
 
-        self.target_features = self.get_features_img(fresh_image)
-        all_dist, min_dist, min_idx = self.dist_target_to_database()
+        target_features = self.get_features_img(fresh_image)
+        all_dist, min_dist, min_idx = self.dist_target_to_database(target_features)
         listed_score = list(enumerate(all_dist, start=1))
         for item in listed_score:
             print('Target score: {}'.format(item))
@@ -102,7 +102,7 @@ class FaceVerification(object):
 
     def init_database(self, path, target_names=None):
         self.database_metadata = load_metadata(path, names=target_names)
-        self.database_features = self.get_features_metadata(self.database_metadata)
+        self.database_features, self.database_metadata = self.get_features_metadata(self.database_metadata)
 
     def get_features_img(self, img):
         embedded = np.zeros(128)
@@ -115,38 +115,54 @@ class FaceVerification(object):
 
     def get_features_metadata(self, metadata):
         embedded = np.zeros((metadata.shape[0], 128))
+        embedded_flt = [0] * len(metadata)
         for i, m in enumerate(metadata):
             img = self.load_image(m.image_path())
             aligned_img = self.align_image(img)
             if aligned_img is None:
-                embedded[i] = np.full((1, 128), -0.1)  # HACK. Giving bad value so distance will never be small.
-                print('Cannot locate face on {} image. Skipping.'.format(m.image_path()))
+                embedded_flt[i] = 1
+                print('Cannot locate face in {} -> Excluded from verification'.format(m.image_path()))
             else:
                 aligned_img = (aligned_img / 255.).astype(np.float32)  # scale RGB values to interval [0,1]
                 embedded[i] = self.nn4_small2_pretrained.predict(np.expand_dims(aligned_img, axis=0))[0]
-        return embedded
+
+        for i, val in enumerate(embedded_flt):
+            if val == 1:
+                embedded = np.delete(embedded, i, 0)
+                metadata = np.delete(metadata, i, 0)
+
+        return embedded, metadata
 
     def scan_folder(self, path):
         self.entries_metadata = load_metadata_short(path)
-        self.entries_features = self.get_features_metadata(self.entries_metadata)
-        return self.entries_features
-        # compute distance of each image to database
-        # get average numbers
+        self.entries_features, self.entries_metadata = self.get_features_metadata(self.entries_metadata)
+        all_dists = np.zeros((len(self.entries_features), len(self.database_features)))
+        min_dists = np.zeros(len(self.entries_features))
+        min_index = np.zeros(len(self.entries_features))
+        for idx, item in enumerate(self.entries_features):
+            all_dists[idx], min_dists[idx], min_index[idx] = self.dist_target_to_database(item)
+        dists_avg = np.mean(all_dists, axis=0)
+        return dists_avg, min_dists, min_index
+
+        # STOPPED HERE: got avg distance , min distance for each target, index for each target.
+        # figure ways to make decision: median of indexes? averages of database? thresholding?
         # get the lowest image
         # do the magic
 
         # TEST IF single image works with short_metadata
 
-    def dist_target_to_database(self):
+    def dist_target_to_database(self, features):
         distances = []  # squared L2 distance between pairs
-        num = len(self.database_metadata)
-        for i in range(num):
-            distances.append(self.distance(self.database_features[i], self.target_features))
+        for i in range(len(self.database_features)):
+            distances.append(self.distance(self.database_features[i], features))
         distances = np.array(distances)
 
-        min_dist = np.amin(distances)
-        tmp_min_idx = np.where(distances == np.amin(distances))
+        min_dist = min(i for i in distances if i > 0)
+        # min_dist = np.amin(distances)
+
+        tmp_min_idx = np.where(distances == min_dist)
         min_idx = tmp_min_idx[0][0]
+
         return distances, min_dist, min_idx
 
     def load_image(self, path):
@@ -181,6 +197,8 @@ class FaceVerification(object):
 
 FV = FaceVerification(img_mode=SINGLE_IMAGE_PATH)
 FV.init_database(database_pt, target_names=1)
-ae = FV.scan_folder(new_entries_pt)
-print(ae)
+a, b, c = FV.scan_folder(new_entries_pt)
+print(a)
+print(b)
+print(c)
 # FV.doPrediction(img_path='new_entries/image_0009.jpg',plot=1)
