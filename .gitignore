@@ -55,10 +55,6 @@ qtcreator-*
 CATKIN_IGNORE
 
 # For VScode stuff
-dns_main/.gitignore
-dns_main/.vscode/*
-dns_arduino_controller/.gitignore
-dns_arduino_controller/.vscode/*
 .vscode/*
 
 
@@ -196,3 +192,6 @@ node_modules
 .pyre/
 
 *.pcd
+
+useful_stuff/requirements.txt
+useful_stuff/my_packages_20_02_2020.txt
