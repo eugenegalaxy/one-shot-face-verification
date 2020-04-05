@@ -36,7 +36,6 @@ def load_metadata(path, names=None):
     counter = 0  # Target counter
     print('\n')
     for folder_name in sorted(os.listdir(path)):
-        counter += 1
         for file_name in sorted(os.listdir(os.path.join(path, folder_name))):
             ext = os.path.splitext(file_name)[1]
 
@@ -54,6 +53,7 @@ def load_metadata(path, names=None):
                 lang_main = ['Unknown']
             if ext == '.jpg' or ext == '.jpeg':
                 metadata.append(IdentityMetadata(path, folder_name, file_name))
+        counter += 1
     print('\n')
     return np.array(metadata)
 
