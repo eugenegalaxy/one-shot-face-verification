@@ -6,7 +6,7 @@ from model import create_model  # CNN library
 from directory_utils import load_metadata, load_metadata_short, find_language_code
 
 # If Intel Real sense camera is connected, set to True. Set False for Webcamera.
-RS_CAM_AVAILABLE = True
+RS_CAM_AVAILABLE = False
 
 # ------ Image Modes -------
 GET_FRESH_CAM_IMAGE = 0
