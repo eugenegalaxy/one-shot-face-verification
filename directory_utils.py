@@ -58,7 +58,7 @@ def load_metadata(path, names=None):
     return np.array(metadata)
 
 
-def load_metadata_short(path, names=None):
+def load_metadata_short(path, names=None):  # TODO Name Printing
     metadata = []
     counter = 0  # Target counter
     for file_name in sorted(os.listdir(path)):
