@@ -9,8 +9,7 @@ DROP TABLE IF EXISTS employee_profiles;
 
 CREATE TABLE employee_profiles (
   empId smallint AUTO_INCREMENT PRIMARY KEY,
-  firstName varchar(50) NOT NULL,
-  lastName varchar(50) NOT NULL,
+  fullName varchar(150) NOT NULL,
   age smallint NOT NULL,
   nationality varchar(30) NOT NULL,
   languageCode char(2) NOT NULL,
@@ -26,8 +25,7 @@ DROP TABLE IF EXISTS employee_images;
 
 CREATE TABLE employee_images (
   imgId smallint AUTO_INCREMENT PRIMARY KEY,
-  firstName varchar(50) NOT NULL,
-  lastName varchar(50) NOT NULL,
+  fullName varchar(150) NOT NULL,
   empImage longblob DEFAULT NULL,
   empId smallint,
   CONSTRAINT employeeImgFK
@@ -36,11 +34,3 @@ CREATE TABLE employee_images (
     ON DELETE SET NULL 
     ON UPDATE CASCADE
 ) ENGINE=INNODB;
-
--- /*Data for the table employee_images */
-
--- INSERT INTO employee_images(imgId, firstName, lastName, empImage, empId) VALUES 
-
--- (NULL, 'Jevgenijs', 'Galaktionovs', NULL, 1),
--- (NULL, 'Hugo', 'Markoff', NULL, 2),
--- (NULL, 'Rebecca', 'Malihi', NULL, 3);
