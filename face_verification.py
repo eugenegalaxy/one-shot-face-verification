@@ -1,3 +1,4 @@
+import time
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt  # Plotting tool
@@ -126,12 +127,14 @@ class FaceVerification(object):
                 aligned_img = (aligned_img / 255.).astype(np.float32)  # scale RGB values to interval [0,1]
                 embedded[i] = self.nn4_small2_pretrained.predict(np.expand_dims(aligned_img, axis=0))[0]
 
-        for i, val in enumerate(embedded_flt):
-            if val == 1:
-                embedded = np.delete(embedded, i, 0)
-                metadata = np.delete(metadata, i, 0)
+        bad_idx = [i for i, e in enumerate(embedded_flt) if e == 1]  # indices of photos that failed face-aligning.
+        embedded = np.delete(embedded, bad_idx, 0)
+        metadata = np.delete(metadata, bad_idx, 0)
 
-        return embedded, metadata
+        if embedded.shape[0] == 0:
+            raise ValueError('Cannot not locate face on any of the images')
+        else:
+            return embedded, metadata
 
     def scan_folder(self, path):
         self.entries_metadata = load_metadata_short(path)
@@ -195,8 +198,13 @@ class FaceVerification(object):
             return True
 
 
-FV = FaceVerification(img_mode=SINGLE_IMAGE_PATH)
-FV.init_database(database_pt, target_names=1)
+# for x in range(5):
+#     getImage(save=1)
+#     time.sleep(1)
+
+FV = FaceVerification(img_mode=ALL_FROM_DIRECTORY)
+mysql_database_pt = 'mysql_database'
+FV.init_database(mysql_database_pt, target_names=1)
 a, b, c = FV.scan_folder(new_entries_pt)
 print(a)
 print(b)

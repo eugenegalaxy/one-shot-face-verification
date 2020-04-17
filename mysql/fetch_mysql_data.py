@@ -1,11 +1,13 @@
 import mysql.connector
+import os
 
 ENCODING = 'latin1'  # Default utf-8 encoding fails to read BLOB(images) data
-path = 'mysql_database'  # To save images from database.
+g_path = 'mysql_database'  # To save images from database.
+g_save_img_ext = 'jpg'  # Format used to save images on a hard disk.
 
 # --------------------------------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------
-# FOR DATABASE USERS, PLEASE WRITE IN THE NAMES:
+# ============================  FOR DATABASE USERS, PLEASE WRITE IN THE INFORMATION ============================
 
 # Host address:
 g_host_address = 'localhost'
@@ -91,14 +93,6 @@ def fetch_table(table_name):
         query = '''SELECT * FROM {}'''.format(table_name)
         cursor.execute(query)
         data = cursor.fetchall()
-
-        # for row in data:
-            # print('Id = ', row[0], )
-            # print('Name = ', row[1])
-            # image = row[2]
-            # print('emp_key') = row[3]
-            # # print('Storing employee image and bio-data on disk \n')
-            # write_file(image, photo)
         return data
 
     except mysql.connector.Error as error:
@@ -112,7 +106,8 @@ def fetch_table(table_name):
 
 
 # Function assumes that table 'g_emp_images' is connected to table g_emp_prof by FOREIGN KEY
-def combine_data_by_foreign_key():
+def combine_and_save_data():
+    '''Function combines two tables data by foreign key and saves blobs on disk.'''
     try:
         connection = mysql.connector.connect(host=g_host_address,
                                              database=g_database_name,
@@ -152,17 +147,17 @@ def combine_data_by_foreign_key():
                 cursor.execute(query)
                 merged_data = cursor.fetchall()
 
-# ------------------------------------------------------------------------
-# Stopped here. Insted of this block, replace it with cool sorter by folders/names! Also collect all info into .txt file.
                 counter = 0
-                funny_name = 'ae'
-                ext = 'jpg'
 
                 for item in merged_data:
-                    full_path = "{0}/{1}_{2}.{3}".format(path, funny_name, str(counter), ext)
+                    person_name = item[0].replace(" ", "_")
+                    directory_path = os.path.join(g_path, person_name)
+                    if not os.path.isdir(directory_path):
+                        os.mkdir(directory_path)
+                    full_path = "{0}/{1}_{2}.{3}".format(directory_path, person_name, str(counter), g_save_img_ext)
                     save_image_on_disk(item[1], full_path)
                     counter += 1
-# ------------------------------------------------------------------------
+
             else:
                 print('There are not images in the table.')
         else:
@@ -174,11 +169,11 @@ def combine_data_by_foreign_key():
         if (connection.is_connected()):
             cursor.close()
             connection.close()
-            print('MySQL connection is closed')    
+            print('MySQL connection is closed')
     # Function that checks two tables for FOREIGN KEY and collects data into 1 table
 
 
-combine_data_by_foreign_key()
+combine_and_save_data()
 
 # if table_desc['Primary_key_column']:
 #     PK_column_id = table_desc['Primary_key_column'][0][1]  # Shows index of table column that has PRIMARY KEY
@@ -187,22 +182,9 @@ combine_data_by_foreign_key()
 # if table_desc['BLOB_data_column']:
 #     BLOB_column_id = table_desc['BLOB_data_column'][0][1]   # Shows index of table column that has BLOB object
 
-# person_name = table_data[0][1]
-# person_name.replace(" ", "+")
-# print(person_name)
-# path = 'mysql_database'
-# funny_name = 'iuliu.jpg'
-# full_path = "{0}/{1}".format(path, funny_name)
 
-# image = table_data[0][BLOB_column_id]
-# print(type(image))
-# save_image_on_disk(image, full_path)
+# emp_prof_data = fetch_table(g_emp_prof)
+# emp_images_data = fetch_table(g_emp_images)
 
-
-
-
-emp_prof_data = fetch_table(g_emp_prof)
-emp_images_data = fetch_table(g_emp_images)
-
-emp_prof_desc = fetch_table_description(g_emp_prof)
-emp_images_desc = fetch_table_description(g_emp_images)
+# emp_prof_desc = fetch_table_description(g_emp_prof)
+# emp_images_desc = fetch_table_description(g_emp_images)
