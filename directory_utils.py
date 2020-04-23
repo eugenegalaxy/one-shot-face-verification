@@ -36,12 +36,12 @@ def load_metadata(path, names=None):
     counter = 0  # Target counter
     print('\n')
     for folder_name in sorted(os.listdir(path)):
-        counter += 1
         for file_name in sorted(os.listdir(os.path.join(path, folder_name))):
             ext = os.path.splitext(file_name)[1]
 
             if names is not None:
                 full_name_str = str()
+                lang_full = None
                 word_list = re.split(r'[`\-=~!@#$%^&*()_+\[\]{};\'\\:"|<,./<>?\s]', str(folder_name))  # split words by special chars
                 for word in word_list:
                     if word.count("") == 3 and [item for item in languages if item[0] == word]:
@@ -49,16 +49,21 @@ def load_metadata(path, names=None):
                         lang_main = lang_full[0].split(';')
                     else:
                         full_name_str += (" " + word)
-                print(('Target {}:'.format(counter) + '\t').expandtabs(4) +
-                      ('{}'.format(full_name_str) + '\t' + ' Language: {}'.format(lang_main[0])).expandtabs(30))
+                if lang_full is not None:
+                    print(('Target {}:'.format(counter) + '\t').expandtabs(4) +
+                          ('{}'.format(full_name_str) + '\t' + ' Language: {}'.format(lang_main[0])).expandtabs(30))
+                else:
+                    print(('Target {}:'.format(counter) + '\t').expandtabs(4) +
+                          ('{}'.format(full_name_str)))              
                 lang_main = ['Unknown']
             if ext == '.jpg' or ext == '.jpeg':
                 metadata.append(IdentityMetadata(path, folder_name, file_name))
+            counter += 1
     print('\n')
     return np.array(metadata)
 
 
-def load_metadata_short(path, names=None):
+def load_metadata_short(path, names=None):  # TODO Name Printing
     metadata = []
     counter = 0  # Target counter
     for file_name in sorted(os.listdir(path)):
