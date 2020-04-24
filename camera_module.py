@@ -3,11 +3,10 @@ import pyrealsense2 as rs
 import numpy as np
 from directory_utils import *
 
-CAM_IMG_DIR = 'new_entries'
 CAM_IMG_DIR_MAX_SIZE_MB = 10  # In megabytes!!
 
 
-def getWebcamImage(save=None, plot=None):
+def getImg_webcam(save_path=None, plot=None):
     cap = cv2.VideoCapture(0)
 
     if not cap.isOpened():
@@ -19,8 +18,8 @@ def getWebcamImage(save=None, plot=None):
     resized = cv2.resize(frame, dim, interpolation=cv2.INTER_AREA)
     cap.release()
 
-    if save is not None:
-        path = CAM_IMG_DIR
+    if save_path is not None:
+        path = save_path
         slash = '/'
         ext = '.jpg'
         name = 'image_'
@@ -97,13 +96,13 @@ def rs_capture_frame(pipeline):
     return color_image
 
 
-def rs_getImage(save=None, plot=None):
+def getImg_realsense(save_path=None, plot=None):
     pipe = rs_init_camera()
     time.sleep(3)
     image = rs_capture_frame(pipe)
     pipe.stop()
-    if save is not None:
-        path = CAM_IMG_DIR
+    if save_path is not None:
+        path = save_path
         slash = '/'
         dir_size_guard(path, CAM_IMG_DIR_MAX_SIZE_MB)
         ext = '.jpg'
@@ -111,6 +110,7 @@ def rs_getImage(save=None, plot=None):
         next_nr = generate_number_imgsave(path)
         full_name = path + slash + name + next_nr + ext
         cv2.imwrite(full_name, image)
+
     if plot is not None:
         cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
         cv2.imshow('RealSense', image)

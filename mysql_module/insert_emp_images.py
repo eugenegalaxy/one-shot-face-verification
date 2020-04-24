@@ -41,7 +41,7 @@ def insert_employee_images(fullName, empImage, empId):
             print("MySQL connection is closed")
 
 
-# # target_database folder -> 1x image of 17 people
+# # target_database folder -> 1x image of 17 people divided in directories
 # img_paths = load_metadata('target_database', names=1)
 # img_paths = [str(item) for item in img_paths]
 
@@ -63,8 +63,8 @@ def insert_employee_images(fullName, empImage, empId):
 # insert_employee_images("Toke Olsen",                img_paths[15], 16)
 # insert_employee_images("Uffe Koch",                 img_paths[16], 17)
 
-img_paths = load_metadata_short('new_entries')
-img_paths = [str(item) for item in img_paths]
-insert_employee_images("Jevgenijs Galaktionovs",    img_paths[0],  1)
-insert_employee_images("Jevgenijs Galaktionovs",    img_paths[1],  1)
+# img_paths = load_metadata_short('new_entries')
+# img_paths = [str(item) for item in img_paths]
+# insert_employee_images("Jevgenijs Galaktionovs", img_paths[0], 1)
+# insert_employee_images("Jevgenijs Galaktionovs", img_paths[1], 1)
 # place to insert more images from some extra folder

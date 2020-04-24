@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt  # Plotting tool
 from align import AlignDlib  # Face alignment method
 from model import create_model  # CNN library
 from directory_utils import load_metadata, load_metadata_short, find_language_code
+from mysql_module.fetch_mysql_data import save_employee_data
 
 # If Intel Real sense camera is connected, set to True. Set False for Webcamera.
 RS_CAM_AVAILABLE = False
@@ -15,22 +16,22 @@ ALL_FROM_DIRECTORY = 1
 SINGLE_IMAGE_PATH = 2
 
 # ------ Directories -------
-database_pt = 'target_database'
-new_entries_pt = 'new_entries'
-scanned_entries_pt = 'scanned_entries'
+target_database_pt = 'images/manual_database'
+new_entries_pt = 'images/new_entries'
+scanned_entries_pt = 'images/scanned_entries'
+mysql_database_pt = 'images/mysql_database'
 
 if RS_CAM_AVAILABLE is True:
-    from camera_module import rs_getImage as getImage
+    from camera_module import getImg_realsense as getImg
 else:
-    from camera_module import getWebcamImage as getImage
+    from camera_module import getImg_webcam as getImg
 
 
 class FaceVerification(object):
 
     landmarks_pt = 'models/landmarks.dat'
     weights_pt = 'weights/nn4.small2.v1.h5'
-    newtarget_pt = 'new_entries'
-    threshold = 0.75
+    threshold = 0.80
 
     def __init__(self, img_mode=GET_FRESH_CAM_IMAGE):
         self.nn4_small2_pretrained = create_model()  # Create a Neural network model
@@ -43,10 +44,10 @@ class FaceVerification(object):
             if self.pipeline in locals():
                 self.pipeline.stop()
 
-    def doPrediction(self, img_path=None, plot=None):
+    def doPrediction(self, img_path=None, dir_path=None, plot=None):
 
         if self.img_mode == GET_FRESH_CAM_IMAGE:
-            fresh_image = getImage(save=1)
+            fresh_image = getImg(save_path=new_entries_pt)
 
             target_features = self.get_features_img(fresh_image)
             all_dist, min_dist, min_idx = self.dist_target_to_database(target_features)
@@ -57,10 +58,9 @@ class FaceVerification(object):
         elif self.img_mode == SINGLE_IMAGE_PATH:
             if img_path is None:
                 raise ValueError('Parameter img_path is not provided in doPrediction() (Selected mode: SINGLE_IMAGE_PATH')
-            fresh_image = cv2.imread(img_path, 1)  # Example path: 'new_entries/image_0000.jpg'
+            fresh_image = cv2.imread(img_path, 1)  # Example path: 'images/new_entries/image_0000.jpg'
             if fresh_image is None:
-                print("============================================\n'{}' does not exist or path is wrong.".format(img_path))
-                quit()
+                raise ValueError('"{}" does not exist or path is wrong in doPrediction() (Selected mode: ALL_FROM_DIRECTORY'.format(img_path))
 
             target_features = self.get_features_img(fresh_image)
             all_dist, min_dist, min_idx = self.dist_target_to_database(target_features)
@@ -69,22 +69,22 @@ class FaceVerification(object):
                 print('Target score: {}'.format(item))
 
         elif self.img_mode == ALL_FROM_DIRECTORY:
-            pass
+            if dir_path is None:
+                raise ValueError('Parameter dir_path is not provided in doPrediction() (Selected mode: ALL_FROM_DIRECTORY')
+            dist_avg, min_dist, min_idx = self.scanFolder(dir_path)
+            print(dist_avg)
+            print(min_dist)
+            print(min_idx)
+            quit()  # TODO This gives lists, but target_recognized takes single values. FIX
         else:
             raise ValueError('Provided img_mode is wrong. Select 0, 1 or 2 and try again.')
-
-        target_features = self.get_features_img(fresh_image)
-        all_dist, min_dist, min_idx = self.dist_target_to_database(target_features)
-        listed_score = list(enumerate(all_dist, start=1))
-        for item in listed_score:
-            print('Target score: {}'.format(item))
 
         target_recognised = self.threshold_check(min_dist)
 
         if target_recognised is True:
             target_name = self.database_metadata[min_idx].name
             lang_code, lang_str = find_language_code(self.database_metadata[min_idx], print_text=1)
-            print("Target recognized as " + str(target_name) + ". Language: " + str(lang_str[0]))
+            print("Target recognized as " + str(target_name) + ". Language: " + str(lang_str))
 
             if plot is not None:
                 plt.figure(num="Face Verification", figsize=(8, 5))
@@ -136,7 +136,7 @@ class FaceVerification(object):
         else:
             return embedded, metadata
 
-    def scan_folder(self, path):
+    def scanFolder(self, path):
         self.entries_metadata = load_metadata_short(path)
         self.entries_features, self.entries_metadata = self.get_features_metadata(self.entries_metadata)
         all_dists = np.zeros((len(self.entries_features), len(self.database_features)))
@@ -199,14 +199,13 @@ class FaceVerification(object):
 
 
 # for x in range(5):
-#     getImage(save=1)
+#     getImg(save_path=new_entries_pt)
 #     time.sleep(1)
 
-FV = FaceVerification(img_mode=ALL_FROM_DIRECTORY)
-mysql_database_pt = 'mysql_database'
-FV.init_database(mysql_database_pt, target_names=1)
-a, b, c = FV.scan_folder(new_entries_pt)
-print(a)
-print(b)
-print(c)
-# FV.doPrediction(img_path='new_entries/image_0009.jpg',plot=1)
+FV = FaceVerification()
+FV.img_mode = ALL_FROM_DIRECTORY
+dir_path = new_entries_pt
+
+# save_employee_data(mysql_database_pt)
+FV.init_database(target_database_pt, target_names=1)
+FV.doPrediction(dir_path=dir_path, plot=1)
