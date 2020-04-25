@@ -1,0 +1,8 @@
+empId: 17
+fullName: Uffe Koch
+age: 40
+nationality: Danish
+languageCode: dk
+heightCm: 172
+weightKg: 85
+socialMediaLink: https://www.linkedin.com/in/uffekoch/

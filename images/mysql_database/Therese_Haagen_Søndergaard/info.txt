@@ -1,0 +1,8 @@
+empId: 15
+fullName: Therese Haagen Søndergaard
+age: 25
+nationality: Danish
+languageCode: dk
+heightCm: 174
+weightKg: 62
+socialMediaLink: https://www.facebook.com/therese.soendergaard

@@ -1,0 +1,8 @@
+empId: 11
+fullName: Mario Javier Rincón Pérez
+age: 27
+nationality: Spanish
+languageCode: es
+heightCm: 183
+weightKg: 82
+socialMediaLink: https://www.linkedin.com/in/mjrincon/

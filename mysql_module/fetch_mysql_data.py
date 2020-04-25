@@ -152,13 +152,12 @@ def save_employee_data(save_path):
 
                 save_image_on_disk(item[1], full_path_img)
 
-                full_path_txt = "{0}/{1}".format(directory_path, 'info')
+                full_path_txt = "{0}/{1}.{2}".format(directory_path, 'info', 'txt')
                 if not os.path.isfile(full_path_txt):  # If info txt already exists, it won't save the same info on every photo iteration
                     for entry in all_entries:
                         if item[0] in entry:
                             for idx, row in enumerate(entry):  # <-- iterates over each entry
                                 data_str = "{0}: {1}\n".format(column_names[idx], row)
-                                print(data_str)
                                 save_data_text_on_disk(data_str, full_path_txt)
         else:
             print('There are no images in the table.')

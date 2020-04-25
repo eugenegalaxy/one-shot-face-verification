@@ -2,18 +2,23 @@ import time
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt  # Plotting tool
+import logging
 from align import AlignDlib  # Face alignment method
 from model import create_model  # CNN library
 from directory_utils import load_metadata, load_metadata_short, find_language_code
 from mysql_module.fetch_mysql_data import save_employee_data
+
+
+# Debug mode. Enables prints.
+g_DEBUG_MODE = False
 
 # If Intel Real sense camera is connected, set to True. Set False for Webcamera.
 RS_CAM_AVAILABLE = False
 
 # ------ Image Modes -------
 GET_FRESH_CAM_IMAGE = 0
-ALL_FROM_DIRECTORY = 1
-SINGLE_IMAGE_PATH = 2
+SINGLE_IMAGE_PATH = 1
+ALL_FROM_DIRECTORY = 2
 
 # ------ Directories -------
 target_database_pt = 'images/manual_database'
@@ -29,67 +34,99 @@ else:
 
 class FaceVerification(object):
 
+    logging.basicConfig(filename='images/verification_info.log',
+                        level=logging.DEBUG,
+                        # filemode='w',
+                        format='%(asctime)s :: %(message)s')
     landmarks_pt = 'models/landmarks.dat'
     weights_pt = 'weights/nn4.small2.v1.h5'
-    threshold = 0.80
+    RECOGNITION_THRESHOLD = 0.80
+    img_mode = None  # Image Mode variable
 
-    def __init__(self, img_mode=GET_FRESH_CAM_IMAGE):
+    def __init__(self):
         self.nn4_small2_pretrained = create_model()  # Create a Neural network model
         self.nn4_small2_pretrained.load_weights(self.weights_pt)  # Use pre-trained weights
         self.alig_model = AlignDlib(self.landmarks_pt)  # Initialize the OpenFace face alignment utility
-        self.img_mode = img_mode  # Image acquisition mode: all images from folder = 1, fresh capture = 2, single image from path = 3
 
     if RS_CAM_AVAILABLE is True:
         def __del__(self):
             if self.pipeline in locals():
                 self.pipeline.stop()
 
-    def doPrediction(self, img_path=None, dir_path=None, plot=None):
+    def initDatabase(self, path, target_names=None):
+        self.database_metadata = load_metadata(path, names=target_names)
+        self.database_features, self.database_metadata = self.get_features_metadata(self.database_metadata)
 
-        if self.img_mode == GET_FRESH_CAM_IMAGE:
+    def setImgMode(self, img_mode):
+        '''
+            Set mode how to obtain NEW images to verify against a database.
+            Parameter 'img_mode' options:
+            0 (GET_FRESH_CAM_IMAGE): Acquire fresh image and verify it against database.
+            1 (SINGLE_IMAGE_PATH): Provide path to image saved on disk and verify it against database.
+            2 (ALL_FROM_DIRECTORY): Provide path to directory and scan all images in it (NOTE: No subdirectories!)
+        '''
+        self.img_mode = img_mode
+
+    def predict(self, single_img_path=None, directory_path=None, plot=None):
+
+        assert (self.img_mode is not None), 'No image mode is selected. See FaceVerification.setImgMode() function.'
+
+        if self.img_mode == 0:
             fresh_image = getImg(save_path=new_entries_pt)
 
             target_features = self.get_features_img(fresh_image)
+            if type(target_features) == int:
+                return -1
             all_dist, min_dist, min_idx = self.dist_target_to_database(target_features)
             listed_score = list(enumerate(all_dist, start=1))
             for item in listed_score:
                 print('Target score: {}'.format(item))
 
-        elif self.img_mode == SINGLE_IMAGE_PATH:
-            if img_path is None:
-                raise ValueError('Parameter img_path is not provided in doPrediction() (Selected mode: SINGLE_IMAGE_PATH')
-            fresh_image = cv2.imread(img_path, 1)  # Example path: 'images/new_entries/image_0000.jpg'
-            if fresh_image is None:
-                raise ValueError('"{}" does not exist or path is wrong in doPrediction() (Selected mode: ALL_FROM_DIRECTORY'.format(img_path))
+        elif self.img_mode == 1:
+
+            assert single_img_path is not None, 'Parameter single_img_path is not provided in predict() (Selected mode: SINGLE_IMAGE_PATH)'
+
+            fresh_image = cv2.imread(single_img_path, 1)  # Example path: 'images/new_entries/image_0000.jpg'
+
+            assert fresh_image is not None, '"{}" does not exist or path is wrong in predict() (Selected mode: SINGLE_IMAGE_PATH)'.format(single_img_path)
 
             target_features = self.get_features_img(fresh_image)
+            if type(target_features) == int:
+                return -1
             all_dist, min_dist, min_idx = self.dist_target_to_database(target_features)
             listed_score = list(enumerate(all_dist, start=1))
             for item in listed_score:
                 print('Target score: {}'.format(item))
 
-        elif self.img_mode == ALL_FROM_DIRECTORY:
-            if dir_path is None:
-                raise ValueError('Parameter dir_path is not provided in doPrediction() (Selected mode: ALL_FROM_DIRECTORY')
-            dist_avg, min_dist, min_idx = self.scanFolder(dir_path)
-            print(dist_avg)
-            print(min_dist)
-            print(min_idx)
-            quit()  # TODO This gives lists, but target_recognized takes single values. FIX
-        else:
-            raise ValueError('Provided img_mode is wrong. Select 0, 1 or 2 and try again.')
+        elif self.img_mode == 2:
+
+            assert directory_path is not None, 'Parameter directory_path is not provided in predict() (Selected mode: ALL_FROM_DIRECTORY)'
+
+            self.entries_metadata = load_metadata_short(directory_path)
+            self.entries_features, self.entries_metadata = self.get_features_metadata(self.entries_metadata)
+            all_dists = np.zeros((len(self.entries_features), len(self.database_features)))
+            min_dists = np.zeros(len(self.entries_features))
+            min_idxs = np.zeros(len(self.entries_features))
+            for idx, item in enumerate(self.entries_features):
+                all_dists[idx], min_dists[idx], min_idxs[idx] = self.dist_target_to_database(item)
+            avg_dists = np.mean(all_dists, axis=0)
+
+            min_dist, min_idx, img_idx = self.decision_maker_v1(all_dists, avg_dists, min_dists, min_idxs)
+            fresh_image = self.entries_metadata[img_idx]  # NOTE: Crappy name -> for sake of consisency with other img_mode cases above.
+            fresh_image = self.load_image(fresh_image.image_path())
 
         target_recognised = self.threshold_check(min_dist)
 
         if target_recognised is True:
             target_name = self.database_metadata[min_idx].name
-            lang_code, lang_str = find_language_code(self.database_metadata[min_idx], print_text=1)
-            print("Target recognized as " + str(target_name) + ". Language: " + str(lang_str))
+
+            lang_code, lang_str = find_language_code(self.database_metadata[min_idx])
+            logging.info("Target recognized as {0}. Language: {1}".format(str(target_name), str(lang_str)))
 
             if plot is not None:
                 plt.figure(num="Face Verification", figsize=(8, 5))
                 plt.suptitle("Most similar to {0} with Distance of {1:1.3f}\n".format(target_name, min_dist)
-                             + "Language code '{0}': {1}.".format(lang_code, lang_str[0]))
+                             + "Language code '{0}': {1}.".format(lang_code, lang_str))
                 plt.subplot(121)
                 fresh_image = fresh_image[..., ::-1]
                 plt.imshow(fresh_image)
@@ -99,17 +136,26 @@ class FaceVerification(object):
                 plt.imshow(img2)
                 plt.show()
         else:
-            print("Unrecognized person detected!\nSaving image to 'log' folder")
-
-    def init_database(self, path, target_names=None):
-        self.database_metadata = load_metadata(path, names=target_names)
-        self.database_features, self.database_metadata = self.get_features_metadata(self.database_metadata)
+            logging.info("Unrecognized person detected.")
+            if plot is not None:
+                plt.figure(num="Face Verification", figsize=(8, 5))
+                plt.suptitle("Who's that Pokemon?\n(Unrecognized person detected with {0:1.3f} distance score)".format(min_dist))
+                plt.subplot(121)
+                fresh_image = fresh_image[..., ::-1]
+                plt.imshow(fresh_image)
+                plt.subplot(122)
+                img2 = self.load_image('useful_stuff/surprise.jpg')
+                img2 = img2[..., ::-1]
+                plt.imshow(img2)
+                plt.show()
 
     def get_features_img(self, img):
         embedded = np.zeros(128)
         aligned_img = self.align_image(img)
         if aligned_img is None:
-            raise ValueError('Cannot locate face on the image')
+            # raise ValueError('Cannot locate face on the image')
+            print('Cannot locate face on image.')
+            return -1
         aligned_img = (aligned_img / 255.).astype(np.float32)  # scale RGB values to interval [0,1]
         embedded = self.nn4_small2_pretrained.predict(np.expand_dims(aligned_img, axis=0))[0]
         return embedded
@@ -122,7 +168,7 @@ class FaceVerification(object):
             aligned_img = self.align_image(img)
             if aligned_img is None:
                 embedded_flt[i] = 1
-                print('Cannot locate face in {} -> Excluded from verification'.format(m.image_path()))
+                logging.info('Cannot locate face in {} -> Excluded from verification'.format(m.image_path()))
             else:
                 aligned_img = (aligned_img / 255.).astype(np.float32)  # scale RGB values to interval [0,1]
                 embedded[i] = self.nn4_small2_pretrained.predict(np.expand_dims(aligned_img, axis=0))[0]
@@ -136,23 +182,25 @@ class FaceVerification(object):
         else:
             return embedded, metadata
 
-    def scanFolder(self, path):
-        self.entries_metadata = load_metadata_short(path)
-        self.entries_features, self.entries_metadata = self.get_features_metadata(self.entries_metadata)
-        all_dists = np.zeros((len(self.entries_features), len(self.database_features)))
-        min_dists = np.zeros(len(self.entries_features))
-        min_index = np.zeros(len(self.entries_features))
-        for idx, item in enumerate(self.entries_features):
-            all_dists[idx], min_dists[idx], min_index[idx] = self.dist_target_to_database(item)
-        dists_avg = np.mean(all_dists, axis=0)
-        return dists_avg, min_dists, min_index
+    def decision_maker_v1(self, all_dists, avg_dists, min_dists, min_index):
 
-        # STOPPED HERE: got avg distance , min distance for each target, index for each target.
-        # figure ways to make decision: median of indexes? averages of database? thresholding?
-        # get the lowest image
-        # do the magic
+        if g_DEBUG_MODE is True:
+            print("================ ALL DISTANCES ================")
+            print(all_dists)
+            print("============== AVERAGE DISTANCES ==============")
+            print(avg_dists)
+            print("============== MINIMUM DISTANCES ==============")
+            print(min_dists)
+            print("========= INDEX OF MINIMUM DISTANCES ==========")
+            print(min_index)
 
-        # TEST IF single image works with short_metadata
+        min_val = np.min(avg_dists)
+        min_index = np.where(avg_dists == min_val)
+        new_min_list = []
+        [new_min_list.append(sublist[min_index[0][0]]) for sublist in all_dists]
+        min_index_sublists = new_min_list.index(min(new_min_list))
+        lowest_score = all_dists[min_index_sublists][min_index[0][0]]
+        return lowest_score, min_index[0][0], min_index_sublists
 
     def dist_target_to_database(self, features):
         distances = []  # squared L2 distance between pairs
@@ -187,25 +235,47 @@ class FaceVerification(object):
         #  Sum of squared errors
         return np.sum(np.square(feature1 - feature2))
 
-    def get_language_code(self, metadata, min_idx):
-        lang_code, lang_full = find_language_code(metadata[min_idx], print_text=1)
-        return lang_code, lang_full
-
     def threshold_check(self, min_dist):
-        if min_dist > self.threshold:
+        if min_dist > self.RECOGNITION_THRESHOLD:
             return False
         else:
             return True
 
 
-# for x in range(5):
-#     getImg(save_path=new_entries_pt)
-#     time.sleep(1)
+def captureManyImages(numberImg, time_interval_sec, save_path):  # TODO: Not tested if works fine with IntelReal Sense
+    img_counter = 0
+    for x in range(numberImg):
+        getImg(save_path=save_path)
+        img_counter += 1
+        remaining = numberImg - img_counter
+        print('Photo {0} is captured. Remaining {1}. Saving in "{2}".'.format(img_counter, remaining, save_path))
+        time.sleep(time_interval_sec)
 
-FV = FaceVerification()
-FV.img_mode = ALL_FROM_DIRECTORY
-dir_path = new_entries_pt
 
 # save_employee_data(mysql_database_pt)
-FV.init_database(target_database_pt, target_names=1)
-FV.doPrediction(dir_path=dir_path, plot=1)
+# time.sleep(2)
+
+# captureManyImages(10, 1, 'images/new_entries')
+
+FV = FaceVerification()
+database_1 = 'images/manual_database'  # Option 1
+database_2 = 'images/mysql_database'   # Option 2
+FV.initDatabase(database_2)
+
+# # Image Mode 1: GET_FRESH_CAM_IMAGE (0) -> Acquire fresh image and compare itagainst database.
+# FV.setImgMode(GET_FRESH_CAM_IMAGE)
+# # Image Mode 2: SINGLE_IMAGE_PATH (1)  -> Provide path to image saved on disk and verify it against database.
+# FV.img_mode = SINGLE_IMAGE_PATH
+# Image Mode 3 (RECOMMENDED): ALL_FROM_DIRECTORY (2)  -> Provide path to directory and scan ALL images in it (NOTE: No subdirectories!)
+FV.img_mode = ALL_FROM_DIRECTORY
+
+# # Predict example (Image Mode 1)
+# FV.predict(plot=1)
+
+# # Predict example (Image Mode 2)
+# my_image = 'images/new_entries/image_0000.jpg'
+# FV.predict(single_img_path=my_image)
+
+# # Predict example (Image Mode 3)
+dir_path = 'images/new_entries/jevgenijs_galaktionovs'
+FV.predict(directory_path=dir_path, plot=1)

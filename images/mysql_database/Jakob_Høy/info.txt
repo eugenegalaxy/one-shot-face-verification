@@ -1,0 +1,8 @@
+empId: 7
+fullName: Jakob Høy
+age: 24
+nationality: German
+languageCode: de
+heightCm: 193
+weightKg: 80
+socialMediaLink: https://www.facebook.com/jakob.hoy.7
