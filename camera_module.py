@@ -35,72 +35,29 @@ def getImg_webcam(save_path=None, plot=None):
     return resized
 
 
-def rs_video_feed_TEST():
-    # Configure depth and color streams
-    pipeline = rs.pipeline()
-    config = rs.config()
-    config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-    config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+def getImg_realsense(save_path=None, plot=None):
 
-    # Start streaming
-    pipeline.start(config)
-
-    try:
-        while True:
-
-            # Wait for a coherent pair of frames: depth and color
-            frames = pipeline.wait_for_frames()
-            depth_frame = frames.get_depth_frame()
-            color_frame = frames.get_color_frame()
-            if not depth_frame or not color_frame:
-                continue
-
-            # Convert images to numpy arrays
-            depth_image = np.asanyarray(depth_frame.get_data())
-            color_image = np.asanyarray(color_frame.get_data())
-
-            # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
-            depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
-
-            # Stack both images horizontally
-            images = np.hstack((color_image, depth_colormap))
-
-            # Show images
-            cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
-            cv2.imshow('RealSense', images)
-            cv2.waitKey()
-
-    finally:
-
-        # Stop streaming
-        pipeline.stop()
-
-
-def rs_init_camera():
+    # Initiliase camera, get pipe
     pipeline = rs.pipeline()
     config = rs.config()
     config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
     config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
     pipeline.start(config)
 
+    # Throw away some frames to stabilize parameters (exposure, light, etc)
     for x in range(5):
         pipeline.wait_for_frames()
 
-    return pipeline
+    # TODO: check if this timer is still needed
+    time.sleep(1)
 
-
-def rs_capture_frame(pipeline):
+    # Capture frame
     frames = pipeline.wait_for_frames()
     color_frame = frames.get_color_frame()
-    color_image = np.asanyarray(color_frame.get_data())
-    return color_image
+    image = np.asanyarray(color_frame.get_data())
 
+    pipeline.stop()
 
-def getImg_realsense(save_path=None, plot=None):
-    pipe = rs_init_camera()
-    time.sleep(3)
-    image = rs_capture_frame(pipe)
-    pipe.stop()
     if save_path is not None:
         path = save_path
         slash = '/'

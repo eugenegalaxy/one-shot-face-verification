@@ -3,11 +3,12 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt  # Plotting tool
 import logging
-from align import AlignDlib  # Face alignment method
-from model import create_model  # CNN library
-from directory_utils import load_metadata, load_metadata_short, find_language_code
-from mysql_module.fetch_mysql_data import save_employee_data
 
+from cnn_module.face_detect import AlignDlib  # Face alignment method
+from cnn_module.model import create_model  # CNN library
+
+from mysql_module.fetch_mysql_data import save_employee_data
+from directory_utils import load_metadata, load_metadata_short, find_language_code
 
 # Debug mode. Enables prints.
 g_DEBUG_MODE = False
@@ -38,8 +39,9 @@ class FaceVerification(object):
                         level=logging.DEBUG,
                         # filemode='w',
                         format='%(asctime)s :: %(message)s')
-    landmarks_pt = 'models/landmarks.dat'
-    weights_pt = 'weights/nn4.small2.v1.h5'
+    weights_pt = 'cnn_module/weights/nn4.small2.v1.h5'
+    landmarks_pt = 'cnn_module/models/landmarks.dat'
+
     RECOGNITION_THRESHOLD = 0.80
     img_mode = None  # Image Mode variable
 
@@ -260,7 +262,7 @@ def captureManyImages(numberImg, time_interval_sec, save_path):  # TODO: Not tes
 FV = FaceVerification()
 database_1 = 'images/manual_database'  # Option 1
 database_2 = 'images/mysql_database'   # Option 2
-FV.initDatabase(database_2)
+FV.initDatabase(database_1)
 
 # # Image Mode 1: GET_FRESH_CAM_IMAGE (0) -> Acquire fresh image and compare itagainst database.
 # FV.setImgMode(GET_FRESH_CAM_IMAGE)
@@ -277,5 +279,7 @@ FV.img_mode = ALL_FROM_DIRECTORY
 # FV.predict(single_img_path=my_image)
 
 # # Predict example (Image Mode 3)
-dir_path = 'images/new_entries/jevgenijs_galaktionovs'
-FV.predict(directory_path=dir_path, plot=1)
+
+dir_path_1 = 'images/new_entries/jevgenijs_galaktionovs'
+dir_path_2 = 'images/new_entries/jesper_bro'
+FV.predict(directory_path=dir_path_2, plot=1)
