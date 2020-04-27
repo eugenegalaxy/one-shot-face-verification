@@ -8,13 +8,13 @@ from cnn_module.face_detect import AlignDlib  # Face alignment method
 from cnn_module.model import create_model  # CNN library
 
 from mysql_module.fetch_mysql_data import save_employee_data
-from directory_utils import load_metadata, load_metadata_short, find_language_code
+from directory_utils import load_metadata, load_metadata_short, find_language_code, retrieve_info
 
 # Debug mode. Enables prints.
-g_DEBUG_MODE = False
+g_DEBUG_MODE = True
 
 # If Intel Real sense camera is connected, set to True. Set False for Webcamera.
-RS_CAM_AVAILABLE = False
+RS_CAM_AVAILABLE = True
 
 # ------ Image Modes -------
 GET_FRESH_CAM_IMAGE = 0
@@ -42,7 +42,7 @@ class FaceVerification(object):
     weights_pt = 'cnn_module/weights/nn4.small2.v1.h5'
     landmarks_pt = 'cnn_module/models/landmarks.dat'
 
-    RECOGNITION_THRESHOLD = 0.80
+    RECOGNITION_THRESHOLD = 0.60
     img_mode = None  # Image Mode variable
 
     def __init__(self):
@@ -80,9 +80,11 @@ class FaceVerification(object):
             if type(target_features) == int:
                 return -1
             all_dist, min_dist, min_idx = self.dist_target_to_database(target_features)
-            listed_score = list(enumerate(all_dist, start=1))
-            for item in listed_score:
-                print('Target score: {}'.format(item))
+
+            if g_DEBUG_MODE is True:
+                listed_score = list(enumerate(all_dist, start=1))
+                for item in listed_score:
+                    print('Target score: {}'.format(item))
 
         elif self.img_mode == 1:
 
@@ -96,9 +98,11 @@ class FaceVerification(object):
             if type(target_features) == int:
                 return -1
             all_dist, min_dist, min_idx = self.dist_target_to_database(target_features)
-            listed_score = list(enumerate(all_dist, start=1))
-            for item in listed_score:
-                print('Target score: {}'.format(item))
+
+            if g_DEBUG_MODE is True:
+                listed_score = list(enumerate(all_dist, start=1))
+                for item in listed_score:
+                    print('Target score: {}'.format(item))
 
         elif self.img_mode == 2:
 
@@ -113,7 +117,17 @@ class FaceVerification(object):
                 all_dists[idx], min_dists[idx], min_idxs[idx] = self.dist_target_to_database(item)
             avg_dists = np.mean(all_dists, axis=0)
 
-            min_dist, min_idx, img_idx = self.decision_maker_v1(all_dists, avg_dists, min_dists, min_idxs)
+            if g_DEBUG_MODE is True:
+                print("================ ALL DISTANCES ================")
+                print(all_dists)
+                print("============== AVERAGE DISTANCES ==============")
+                print(avg_dists)
+                print("============== MINIMUM DISTANCES ==============")
+                print(min_dists)
+                print("========= INDEX OF MINIMUM DISTANCES ==========")
+                print(min_idxs)
+
+            min_dist, min_idx, img_idx = self.decision_maker_v2(all_dists, avg_dists, min_dists, min_idxs)
             fresh_image = self.entries_metadata[img_idx]  # NOTE: Crappy name -> for sake of consisency with other img_mode cases above.
             fresh_image = self.load_image(fresh_image.image_path())
 
@@ -123,12 +137,17 @@ class FaceVerification(object):
             target_name = self.database_metadata[min_idx].name
 
             lang_code, lang_str = find_language_code(self.database_metadata[min_idx])
+
+            if g_DEBUG_MODE is True:
+                print("Target recognized as {0}. Language: {1}".format(str(target_name), str(lang_str)))
+
             logging.info("Target recognized as {0}. Language: {1}".format(str(target_name), str(lang_str)))
 
             if plot is not None:
                 plt.figure(num="Face Verification", figsize=(8, 5))
-                plt.suptitle("Most similar to {0} with Distance of {1:1.3f}\n".format(target_name, min_dist)
-                             + "Language code '{0}': {1}.".format(lang_code, lang_str))
+                title_part_1 = "Most similar to {0} with Distance of {1:1.3f}\n".format(target_name, min_dist)
+                title_part_2 = "Language code '{0}': {1}.".format(lang_code, lang_str)
+                plt.suptitle(title_part_1 + title_part_2)
                 plt.subplot(121)
                 fresh_image = fresh_image[..., ::-1]
                 plt.imshow(fresh_image)
@@ -138,6 +157,9 @@ class FaceVerification(object):
                 plt.imshow(img2)
                 plt.show()
         else:
+            if g_DEBUG_MODE is True:
+                print("Unrecognized person detected.")
+
             logging.info("Unrecognized person detected.")
             if plot is not None:
                 plt.figure(num="Face Verification", figsize=(8, 5))
@@ -170,6 +192,8 @@ class FaceVerification(object):
             aligned_img = self.align_image(img)
             if aligned_img is None:
                 embedded_flt[i] = 1
+                if g_DEBUG_MODE is True:
+                    print('Cannot locate face in {} -> Excluded from verification'.format(m.image_path()))
                 logging.info('Cannot locate face in {} -> Excluded from verification'.format(m.image_path()))
             else:
                 aligned_img = (aligned_img / 255.).astype(np.float32)  # scale RGB values to interval [0,1]
@@ -184,18 +208,7 @@ class FaceVerification(object):
         else:
             return embedded, metadata
 
-    def decision_maker_v1(self, all_dists, avg_dists, min_dists, min_index):
-
-        if g_DEBUG_MODE is True:
-            print("================ ALL DISTANCES ================")
-            print(all_dists)
-            print("============== AVERAGE DISTANCES ==============")
-            print(avg_dists)
-            print("============== MINIMUM DISTANCES ==============")
-            print(min_dists)
-            print("========= INDEX OF MINIMUM DISTANCES ==========")
-            print(min_index)
-
+    def decision_maker_v1(self, all_dists, avg_dists, min_dists, min_idxs):
         min_val = np.min(avg_dists)
         min_index = np.where(avg_dists == min_val)
         new_min_list = []
@@ -203,6 +216,23 @@ class FaceVerification(object):
         min_index_sublists = new_min_list.index(min(new_min_list))
         lowest_score = all_dists[min_index_sublists][min_index[0][0]]
         return lowest_score, min_index[0][0], min_index_sublists
+
+    def decision_maker_v2(self, all_dists, avg_dists, min_dists, min_idxs):
+        lowest_score = 5  # just a big number for distance scores
+        for idx1, item in enumerate(all_dists):
+            for idx2, score in enumerate(item):
+                if score < lowest_score:
+                    lowest_score = score
+                    lowest_score_idx = idx2
+                    lowest_image_idx = idx1
+
+        # min_val = np.min(avg_dists)
+        # min_index = np.where(avg_dists == min_val)
+        # new_min_list = []
+        # [new_min_list.append(sublist[min_index[0][0]]) for sublist in all_dists]
+        # min_index_sublists = new_min_list.index(min(new_min_list))
+        # lowest_score = all_dists[min_index_sublists][min_index[0][0]]
+        return lowest_score, lowest_score_idx, lowest_image_idx
 
     def dist_target_to_database(self, features):
         distances = []  # squared L2 distance between pairs
@@ -262,7 +292,7 @@ def captureManyImages(numberImg, time_interval_sec, save_path):  # TODO: Not tes
 FV = FaceVerification()
 database_1 = 'images/manual_database'  # Option 1
 database_2 = 'images/mysql_database'   # Option 2
-FV.initDatabase(database_1)
+FV.initDatabase(database_2, target_names=1)
 
 # # Image Mode 1: GET_FRESH_CAM_IMAGE (0) -> Acquire fresh image and compare itagainst database.
 # FV.setImgMode(GET_FRESH_CAM_IMAGE)
@@ -279,7 +309,10 @@ FV.img_mode = ALL_FROM_DIRECTORY
 # FV.predict(single_img_path=my_image)
 
 # # Predict example (Image Mode 3)
-
+dir_path_0 = 'images/new_entries'
 dir_path_1 = 'images/new_entries/jevgenijs_galaktionovs'
 dir_path_2 = 'images/new_entries/jesper_bro'
+dir_path_3 = 'images/new_entries/lelde_skrode1'
+dir_path_4 = 'images/new_entries/lelde_skrode2'
+dir_path_5 = 'images/new_entries/hugo_markoff'
 FV.predict(directory_path=dir_path_2, plot=1)

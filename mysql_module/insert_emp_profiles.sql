@@ -20,4 +20,5 @@ INSERT INTO employee_profiles(empId, fullName, age, nationality, languageCode, h
 (NULL, 'David Michalik',            24, 'Hungarian', 'hu', 180, 75, 'https://www.linkedin.com/in/david-michalik95/'),
 (NULL, 'Therese Haagen Søndergaard',25, 'Danish',    'dk', 174, 62, 'https://www.facebook.com/therese.soendergaard'),
 (NULL, 'Toke Olsen',                26, 'Danish',    'dk', 175, 73, 'https://www.facebook.com/toke.olsen.3'),
-(NULL, 'Uffe Koch',                 40, 'Danish',    'dk', 172, 85, 'https://www.linkedin.com/in/uffekoch/');
+(NULL, 'Uffe Koch',                 40, 'Danish',    'dk', 172, 85, 'https://www.linkedin.com/in/uffekoch/'),
+(NULL, 'Jesper Bro Rosenberg',          28, 'Danish',    'dk', 176, 75, 'https://www.linkedin.com/in/jesper-bro-rosenberg-8238b6113/');

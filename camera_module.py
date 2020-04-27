@@ -2,7 +2,7 @@ import cv2
 import pyrealsense2 as rs
 import numpy as np
 from directory_utils import *
-
+import time
 CAM_IMG_DIR_MAX_SIZE_MB = 10  # In megabytes!!
 
 
@@ -48,7 +48,6 @@ def getImg_realsense(save_path=None, plot=None):
     for x in range(5):
         pipeline.wait_for_frames()
 
-    # TODO: check if this timer is still needed
     time.sleep(1)
 
     # Capture frame

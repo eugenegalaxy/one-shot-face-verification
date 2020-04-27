@@ -41,7 +41,8 @@ def load_metadata(path, names=None):
                 if ext == '.jpg' or ext == '.jpeg':
                     full_name_str = str()
                     lang_full = None
-                    word_list = re.split(r'[`\-=~!@#$%^&*()_+\[\]{};\'\\:"|<,./<>?\s]', str(folder_name))  # split words by special chars
+
+                    # split words by special chars
                     for word in word_list:
                         if word.count("") == 3 and [item for item in languages if item[0] == word]:
                             lang_full = [item[1] for item in languages if item[0] == word]
@@ -50,11 +51,12 @@ def load_metadata(path, names=None):
                             full_name_str += (" " + word)
 
                     if lang_full is not None:
-                        print(('Image {}:'.format(counter) + '\t').expandtabs(4) +
-                              ('{}'.format(full_name_str) + '\t' + ' Language: {}'.format(lang_main[0])).expandtabs(30))
+                        print_part_1 = ('Image {}:'.format(counter) + '\t').expandtabs(4)
+                        print_part_2 = ('{}'.format(full_name_str) + '\t' + ' Language: {}'.format(lang_main[0])).expandtabs(30)
+                        print(print_part_1 + print_part_2)
                     else:
-                        print(('Image {}:'.format(counter) + '\t').expandtabs(4) +
-                              ('{}'.format(full_name_str)))
+                        print_nolang = ('Image {}:'.format(counter) + '\t').expandtabs(4) + ('{}'.format(full_name_str))
+                        print(print_nolang)
                     lang_main = ['Unknown']
 
             if ext == '.jpg' or ext == '.jpeg':
@@ -75,10 +77,75 @@ def load_metadata_short(path, names=None):  # TODO Name Printing
     return np.array(metadata)
 
 
+def retrieve_info(path):
+
+    assert(os.path.isdir(path) is True), 'Provided path is not a directory!'
+
+    image_path_list = []
+    text_data = []
+    text_data_dic = {}  # NOTE This is made for a specific case when text lines elements are in "type:data" format.
+    person_name = []
+
+    dir_name = os.path.basename(os.path.normpath(path))
+    dir_name_split = re.split(r'[.`\-=~!@#$%^&*()_+\[\]{};\'\\:"|<,/<>?\s]', str(dir_name))
+    for word in dir_name_split:
+        if word.count("") == 3 and [item for item in languages if item[0] == word]:
+            text_data_dic['languageCode'] = word
+            nationality = [item[1] for item in languages if item[0] == word]
+            if nationality[0].find(';') != -1:
+                nationality_special_char_idx = nationality[0].find(';')
+                text_data_dic['nationality'] = nationality[0][:nationality_special_char_idx]
+            else:
+                text_data_dic['nationality'] = nationality[0]
+            if text_data_dic['nationality'] in locale:
+                text_data_dic['voiceRec'] = locale[text_data_dic['nationality']]
+            else:
+                text_data_dic['voiceRec'] = 'en-US'
+        else:
+            person_name.append(word)
+    person_name = ' '.join(person_name)
+    text_data_dic['fullName'] = person_name
+
+    for file_name in sorted(os.listdir(path)):
+
+        ext = os.path.splitext(file_name)[1]
+        if ext == '.jpg' or ext == '.jpeg':
+            image_path = os.path.join(path, file_name)
+            image_path_list.append(image_path)
+        elif ext == '.txt':
+            text_path = os.path.join(path, file_name)
+            with open(text_path) as f:
+                lines = [line.rstrip('\n') for line in f]
+                text_data.append(lines)
+        elif os.path.isdir(os.path.join(path, file_name)) is True:
+            print('Directory "{}" found. Ignoring it.'.format(file_name))
+        else:
+            print('File "{}" found. Ignoring it.'.format(file_name))
+    text_data = [item for sublist in text_data for item in sublist]  # Flatten list of lists into a list.
+    for item in text_data:
+        ignore_strings = ['www', 'http']
+        if any(x in item for x in ignore_strings):   # Special treatment for list element containing website link.
+            semicolon_index = item.find(':')         # Example:    'abc:123' -> index is 4
+            first_str = item[:semicolon_index]       # First Str:  'abc'
+            second_str = item[semicolon_index + 1:]  # Second Str: '123'
+            text_data_dic[first_str] = second_str
+        else:
+            word_list = re.split(r'[:]', item)  # NOTE Separator symbol is inside r'[]' -> used only : to avoid stripping website link in lists.
+            if word_list[0] == 'nationality':
+                nationality = word_list[1].strip()
+                if nationality in locale:
+                    text_data_dic['voiceRec'] = locale[nationality]
+                else:
+                    text_data_dic['voiceRec'] = 'en-US'
+            text_data_dic[word_list[0]] = word_list[1]
+
+    return text_data_dic, image_path_list
+
+
 def find_language_code(single_metadata, print_text=None):
     language_found = False
     path_no_ext = os.path.splitext(str(single_metadata))[0]  # path without file extension like .jpg
-    word_list = re.split(r'[`\-=~!@#$%^&*()_+\[\]{};\'\\:"|<,./<>?\s]', str(path_no_ext))
+    word_list = re.split(r'[.`\-=~!@#$%^&*()_+\[\]{};\'\\:"|<,/<>?\s]', str(path_no_ext))
     for word in word_list:
         if word.count("") == 3 and [item for item in languages if item[0] == word]:
             lang_full = [item[1] for item in languages if item[0] == word]
@@ -89,7 +156,7 @@ def find_language_code(single_metadata, print_text=None):
                 print("Language code found '{0}': {1}.".format(lang, lang_full[0]))
     if language_found is False:
         lang = 'en'
-        lang_full = 'English'
+        lang_full = ['English']
         if print_text is not None:
             print("Language not found. Set to English by default.")
     return lang, lang_full
@@ -97,7 +164,12 @@ def find_language_code(single_metadata, print_text=None):
 
 def generate_number_imgsave(path):
     img_list = sorted(os.listdir(path))
-    if len(img_list) == 0:
+    img_number = 0
+    for item in img_list:
+        ext = os.path.splitext(item)[1]
+        if ext == '.jpg' or ext == '.jpeg':
+            img_number += 1
+    if img_number == 0:
         return '0000'  # if folder is empty -> give next image '_0000' in name
     else:
         for word in list(img_list):  # iterating on a copy since removing will mess things up
@@ -146,9 +218,8 @@ def dir_clear(path, save_one_file=None):
             os.remove(os.path.join(path, file))
 
 
-
 # coding: utf8
-# Contents are copied from https://gist.github.com/alexanderjulo/4073388
+# ISO639-3 language codesin (alpha_2,language_name) format.
 languages = [
     ('aa', 'Afar'),
     ('ab', 'Abkhazian'),
@@ -353,7 +424,7 @@ languages = [
     ('zh', 'Chinese'),
     ('zu', 'Zulu')
 ]
-
+# ISO 3166 country codes in (alpha_2,country_name) format.
 countries = [
     ('AF', u'Afghanistan'),
     ('AX', u'\xc5land Islands'),
@@ -605,3 +676,33 @@ countries = [
     ('ZM', u'Zambia'),
     ('ZW', u'Zimbabwe')
 ]
+
+
+locale = {
+    'Bulgarian': 'bg-BG',
+    'Czech': 'cs-CZ',
+    'Danish': 'da-DK',
+    'German': 'de-DE',
+    'Greek': 'el-GR',
+    'English': 'en-US',
+    'Spanish': 'es-ES',
+    'Estonian': 'et-EE',
+    'Finnish': 'fi-FI',
+    'French': 'fr-FR',
+    'Croatian': 'hr-HR',
+    'Hungarian': 'hu-HU',
+    'Italian': 'it-IT',
+    'Lithuanian': 'lt-LT',
+    'Latvian': 'lv-LV',
+    'Dutch': 'nl-NL',
+    'Norwegian': 'no-NO',
+    'Polish': 'pl-PL',
+    'Portuguese': 'pt-PT',
+    'Romanian': 'ro-RO',
+    'Russian': 'ru-RU',
+    'Slovak': 'sk-SK',
+    'Slovenian': 'sl-SI',
+    'Swedish': 'sv-SE',
+    'Turkish': 'tr-TR',
+    'Chinese': 'zh-CN',
+}
