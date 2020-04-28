@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from face_verification import FaceVerification
 
 
@@ -22,7 +23,7 @@ def verify_target():
     dir_path_4 = 'images/new_entries/hugo_markoff'
     dir_path_5 = 'images/new_entries/arnold'
 
-    info, images = FV.predict(directory_path=dir_path_1)
+    info, images = FV.predict(directory_path=dir_path_1, plot=1)
 
     return info, images
 
