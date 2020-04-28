@@ -3,7 +3,8 @@ import pyrealsense2 as rs
 import numpy as np
 from directory_utils import *
 import time
-CAM_IMG_DIR_MAX_SIZE_MB = 10  # In megabytes!!
+
+CAM_IMG_DIR_MAX_SIZE_MB = 200  # In megabytes!!
 
 
 def getImg_webcam(save_path=None, plot=None):
@@ -73,3 +74,23 @@ def getImg_realsense(save_path=None, plot=None):
         cv2.waitKey()
         cv2.destroyAllWindows()
     return image
+
+
+def getManyImg_webcam(numberImg, time_interval_sec, save_path):  # TODO: Not tested if works fine with IntelReal Sense
+    img_counter = 0
+    for x in range(numberImg):
+        getImg_webcam(save_path=save_path)
+        img_counter += 1
+        remaining = numberImg - img_counter
+        print('Photo {0} is captured. Remaining {1}. Saving in "{2}".'.format(img_counter, remaining, save_path))
+        time.sleep(time_interval_sec)
+
+
+def getManyImg_realsense(numberImg, time_interval_sec, save_path):  # TODO: Not tested if works fine with IntelReal Sense
+    img_counter = 0
+    for x in range(numberImg):
+        getImg_realsense(save_path=save_path)
+        img_counter += 1
+        remaining = numberImg - img_counter
+        print('Photo {0} is captured. Remaining {1}. Saving in "{2}".'.format(img_counter, remaining, save_path))
+        time.sleep(time_interval_sec)

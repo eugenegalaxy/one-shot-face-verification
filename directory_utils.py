@@ -33,6 +33,8 @@ class IdentityMetadata_short():
 def load_metadata(path, names=None):
     metadata = []
     counter = 0  # Target counter
+    print('=====================================================================')
+    print('Initializing directory: "{}"'.format(path))
     for folder_name in sorted(os.listdir(path)):
         for file_name in sorted(os.listdir(os.path.join(path, folder_name))):
             ext = os.path.splitext(file_name)[1]
@@ -42,7 +44,7 @@ def load_metadata(path, names=None):
                     full_name_str = str()
                     lang_full = None
 
-                    # split words by special chars
+                    word_list = re.split(r'[`\-=~!@#$%^&*()_+\[\]{};\'\\:"|<,./<>?\s]', str(folder_name))  # split words by special chars
                     for word in word_list:
                         if word.count("") == 3 and [item for item in languages if item[0] == word]:
                             lang_full = [item[1] for item in languages if item[0] == word]
@@ -62,7 +64,7 @@ def load_metadata(path, names=None):
             if ext == '.jpg' or ext == '.jpeg':
                 metadata.append(IdentityMetadata(path, folder_name, file_name))
                 counter += 1
-    print('\n')
+    print('=====================================================================')
     return np.array(metadata)
 
 
@@ -103,6 +105,8 @@ def retrieve_info(path):
                 text_data_dic['voiceRec'] = 'en-US'
         else:
             person_name.append(word)
+            text_data_dic['languageCode'] = 'en'
+            text_data_dic['voiceRec'] = 'en-US'
     person_name = ' '.join(person_name)
     text_data_dic['fullName'] = person_name
 

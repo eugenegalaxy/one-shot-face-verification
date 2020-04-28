@@ -163,3 +163,6 @@ def save_employee_data(save_path):
             print('There are no images in the table.')
     else:
         print('Two tables are not connected by any FOREIGN KEY')
+
+
+save_employee_data('images/mysql_database')

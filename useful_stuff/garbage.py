@@ -5,6 +5,40 @@
 # from sklearn.manifold import TSNE  # To plot the results of classifying
 # from sklearn.metrics import f1_score, accuracy_score  # Evaluation
 
+def verify_target():
+    # # STEP 1: Instantiate class object.
+    # FV = FaceVerification()
+
+    # # STEP 2: Initilalise photo database (images to compare new entries to)
+    # database_1 = 'images/manual_database'  # Option 1
+    # database_2 = 'images/mysql_database'   # Option 2
+    # FV.initDatabase(database_2, target_names=1)
+
+    # # STEP 3: Choose image acquisition mode (RECOMMENDED Mode 3)
+
+    # GET_FRESH_CAM_IMAGE = 0  # Image Mode 1 -> Acquire fresh image and compare it against database.
+    # FV.setImgMode(GET_FRESH_CAM_IMAGE)
+
+    # SINGLE_IMAGE_PATH = 1  # Image Mode 2 -> Provide path to image saved on disk and verify it against database.
+    # FV.setImgMode(SINGLE_IMAGE_PATH()
+    # my_image = 'images/new_entries/image_0000.jpg'  # EXAMPLE PATH, MIGHT NOT EXIST
+
+    # ALL_FROM_DIRECTORY = 2  # Image Mode 3 (RECOMMENDED) -> Provide path to directory and scan ALL images in it (NOTE: No subdirectories!)
+    # FV.setImgMode(ALL_FROM_DIRECTORY)
+    # # Options for Image Mode 3:
+    # dir_path_1 = 'images/new_entries/jevgenijs_galaktionovs'
+    # dir_path_2 = 'images/new_entries/jesper_bro'
+    # dir_path_3 = 'images/new_entries/lelde_skrode'
+    # dir_path_4 = 'images/new_entries/hugo_markoff'
+    # dir_path_5 = 'images/new_entries/arnold'
+
+    # # STEP 4: Run the machine and get data!
+    # info, images = FV.predict(plot=1)  # Example for Image Mode 1
+    # info, images = FV.predict(single_img_path=my_image)  # Example for Image Mode 2
+    # info, images = FV.predict(directory_path=dir_path_1)  # Example for Image Mode 3
+    # return info, images
+    pass
+
 
 def plot_pair_distance_example(metadata, embedded, idx1, idx2):
 

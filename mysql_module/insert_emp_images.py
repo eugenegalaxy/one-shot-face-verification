@@ -49,24 +49,26 @@ def insert_employee_images(fullName, empImage, empId):
 # insert_employee_images("Hugo Markoff",              img_paths[1],  2)
 # insert_employee_images("Ivelin Krasimirov Penchev", img_paths[2],  6)
 # insert_employee_images("Jakob Høy",                 img_paths[3],  7)
-# insert_employee_images("Jevgenijs Galaktionovs",    img_paths[4],  1)
-# insert_employee_images("Johnni Nielsen",            img_paths[5],  8)
-# insert_employee_images("Lasma Ziedina",             img_paths[6],  9)
-# insert_employee_images("Lelde Skrode",              img_paths[7],  4)
-# insert_employee_images("Line Uggerly Jørgensen",    img_paths[8],  10)
-# insert_employee_images("Mario Javier Rincón Pérez", img_paths[9],  11)
-# insert_employee_images("Rebecca Nekou Malihi",      img_paths[10], 3)
-# insert_employee_images("Steffan Svendsen",          img_paths[11], 12)
-# insert_employee_images("Strahinja Dosen",           img_paths[12], 13)
-# insert_employee_images("David Michalik",            img_paths[13], 14)
-# insert_employee_images("Therese Haagen Søndergaard",img_paths[14], 15)
-# insert_employee_images("Toke Olsen",                img_paths[15], 16)
-# insert_employee_images("Uffe Koch",                 img_paths[16], 17)
+# insert_employee_images("Jesper Bro Rosenberg",      img_paths[4], 18)
+# insert_employee_images("Jevgenijs Galaktionovs",    img_paths[5],  1)
+# insert_employee_images("Johnni Nielsen",            img_paths[6],  8)
+# insert_employee_images("Lasma Ziedina",             img_paths[7],  9)
+# insert_employee_images("Lelde Skrode",              img_paths[8],  4)
+# insert_employee_images("Line Uggerly Jørgensen",    img_paths[9],  10)
+# insert_employee_images("Mario Javier Rincón Pérez", img_paths[10],  11)
+# insert_employee_images("Rebecca Nekou Malihi",      img_paths[11], 3)
+# insert_employee_images("Steffan Svendsen",          img_paths[12], 12)
+# insert_employee_images("Strahinja Dosen",           img_paths[13], 13)
+# insert_employee_images("David Michalik",            img_paths[14], 14)
+# insert_employee_images("Therese Haagen Søndergaard",img_paths[15], 15)
+# insert_employee_images("Toke Olsen",                img_paths[16], 16)
+# insert_employee_images("Uffe Koch",                 img_paths[17], 17)
 
 
 
-# img_paths = load_metadata_short('new_entries')
-# img_paths = [str(item) for item in img_paths]
-# insert_employee_images("Jevgenijs Galaktionovs", img_paths[0], 1)
-# insert_employee_images("Jevgenijs Galaktionovs", img_paths[1], 1)
+
+img_paths = load_metadata_short('images/new_entries')
+img_paths = [str(item) for item in img_paths]
+insert_employee_images("Jevgenijs Galaktionovs", img_paths[0], 1)
+insert_employee_images("Jevgenijs Galaktionovs", img_paths[1], 1)
 # TODO place to insert more images from some extra folder

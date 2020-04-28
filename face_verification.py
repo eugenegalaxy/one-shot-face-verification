@@ -1,4 +1,3 @@
-import time
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt  # Plotting tool
@@ -7,31 +6,21 @@ import logging
 from cnn_module.face_detect import AlignDlib  # Face alignment method
 from cnn_module.model import create_model  # CNN library
 
-from mysql_module.fetch_mysql_data import save_employee_data
 from directory_utils import load_metadata, load_metadata_short, find_language_code, retrieve_info
 
 # Debug mode. Enables prints.
-g_DEBUG_MODE = True
+g_DEBUG_MODE = False
 
 # If Intel Real sense camera is connected, set to True. Set False for Webcamera.
-RS_CAM_AVAILABLE = True
-
-# ------ Image Modes -------
-GET_FRESH_CAM_IMAGE = 0
-SINGLE_IMAGE_PATH = 1
-ALL_FROM_DIRECTORY = 2
-
-# ------ Directories -------
-target_database_pt = 'images/manual_database'
-new_entries_pt = 'images/new_entries'
-scanned_entries_pt = 'images/scanned_entries'
-mysql_database_pt = 'images/mysql_database'
+RS_CAM_AVAILABLE = False
 
 if RS_CAM_AVAILABLE is True:
     from camera_module import getImg_realsense as getImg
+    from camera_module import getManyImg_realsense as getManyImg
+
 else:
     from camera_module import getImg_webcam as getImg
-
+    from camera_module import getManyImg_webcam as getManyImg
 
 class FaceVerification(object):
 
@@ -42,7 +31,7 @@ class FaceVerification(object):
     weights_pt = 'cnn_module/weights/nn4.small2.v1.h5'
     landmarks_pt = 'cnn_module/models/landmarks.dat'
 
-    RECOGNITION_THRESHOLD = 0.60
+    RECOGNITION_THRESHOLD = 0.65
     img_mode = None  # Image Mode variable
 
     def __init__(self):
@@ -54,6 +43,12 @@ class FaceVerification(object):
         def __del__(self):
             if self.pipeline in locals():
                 self.pipeline.stop()
+
+    def getImage(self, save_path=None):
+        return getImg(save_path=save_path)
+
+    def getManyImages(self, numberImg, time_interval_sec, save_path):
+        return getManyImg(numberImg, time_interval_sec, save_path)
 
     def initDatabase(self, path, target_names=None):
         self.database_metadata = load_metadata(path, names=target_names)
@@ -74,7 +69,7 @@ class FaceVerification(object):
         assert (self.img_mode is not None), 'No image mode is selected. See FaceVerification.setImgMode() function.'
 
         if self.img_mode == 0:
-            fresh_image = getImg(save_path=new_entries_pt)
+            fresh_image = self.getImg(save_path='images/new_entries')
 
             target_features = self.get_features_img(fresh_image)
             if type(target_features) == int:
@@ -134,19 +129,21 @@ class FaceVerification(object):
         target_recognised = self.threshold_check(min_dist)
 
         if target_recognised is True:
+            target_base = self.database_metadata[min_idx].base
             target_name = self.database_metadata[min_idx].name
-
+            target_path = target_base + '/' + target_name
+            target_info, target_images = retrieve_info(target_path)
             lang_code, lang_str = find_language_code(self.database_metadata[min_idx])
 
             if g_DEBUG_MODE is True:
-                print("Target recognized as {0}. Language: {1}".format(str(target_name), str(lang_str)))
+                print("Target recognized as {0} with {1:1.3f} score. Language: {2}".format(target_info['fullName'], min_dist, target_info['nationality']))
 
-            logging.info("Target recognized as {0}. Language: {1}".format(str(target_name), str(lang_str)))
+            logging.info("Target recognized as {0}. Language: {1}".format(str(target_name), target_info['nationality']))
 
             if plot is not None:
                 plt.figure(num="Face Verification", figsize=(8, 5))
                 title_part_1 = "Most similar to {0} with Distance of {1:1.3f}\n".format(target_name, min_dist)
-                title_part_2 = "Language code '{0}': {1}.".format(lang_code, lang_str)
+                title_part_2 = "Language code '{0}': {1}.".format(target_info['languageCode'], target_info['nationality'])
                 plt.suptitle(title_part_1 + title_part_2)
                 plt.subplot(121)
                 fresh_image = fresh_image[..., ::-1]
@@ -156,6 +153,8 @@ class FaceVerification(object):
                 img2 = img2[..., ::-1]
                 plt.imshow(img2)
                 plt.show()
+
+            return target_info, target_images
         else:
             if g_DEBUG_MODE is True:
                 print("Unrecognized person detected.")
@@ -172,6 +171,14 @@ class FaceVerification(object):
                 img2 = img2[..., ::-1]
                 plt.imshow(img2)
                 plt.show()
+
+            target_info = {
+                'fullName': 'Unrecognized',
+                'languageCode': 'en',
+                'voiceRec': 'en-US'
+            }
+            target_images = []
+            return target_info, target_images
 
     def get_features_img(self, img):
         embedded = np.zeros(128)
@@ -272,47 +279,3 @@ class FaceVerification(object):
             return False
         else:
             return True
-
-
-def captureManyImages(numberImg, time_interval_sec, save_path):  # TODO: Not tested if works fine with IntelReal Sense
-    img_counter = 0
-    for x in range(numberImg):
-        getImg(save_path=save_path)
-        img_counter += 1
-        remaining = numberImg - img_counter
-        print('Photo {0} is captured. Remaining {1}. Saving in "{2}".'.format(img_counter, remaining, save_path))
-        time.sleep(time_interval_sec)
-
-
-# save_employee_data(mysql_database_pt)
-# time.sleep(2)
-
-# captureManyImages(10, 1, 'images/new_entries')
-
-FV = FaceVerification()
-database_1 = 'images/manual_database'  # Option 1
-database_2 = 'images/mysql_database'   # Option 2
-FV.initDatabase(database_2, target_names=1)
-
-# # Image Mode 1: GET_FRESH_CAM_IMAGE (0) -> Acquire fresh image and compare itagainst database.
-# FV.setImgMode(GET_FRESH_CAM_IMAGE)
-# # Image Mode 2: SINGLE_IMAGE_PATH (1)  -> Provide path to image saved on disk and verify it against database.
-# FV.img_mode = SINGLE_IMAGE_PATH
-# Image Mode 3 (RECOMMENDED): ALL_FROM_DIRECTORY (2)  -> Provide path to directory and scan ALL images in it (NOTE: No subdirectories!)
-FV.img_mode = ALL_FROM_DIRECTORY
-
-# # Predict example (Image Mode 1)
-# FV.predict(plot=1)
-
-# # Predict example (Image Mode 2)
-# my_image = 'images/new_entries/image_0000.jpg'
-# FV.predict(single_img_path=my_image)
-
-# # Predict example (Image Mode 3)
-dir_path_0 = 'images/new_entries'
-dir_path_1 = 'images/new_entries/jevgenijs_galaktionovs'
-dir_path_2 = 'images/new_entries/jesper_bro'
-dir_path_3 = 'images/new_entries/lelde_skrode1'
-dir_path_4 = 'images/new_entries/lelde_skrode2'
-dir_path_5 = 'images/new_entries/hugo_markoff'
-FV.predict(directory_path=dir_path_2, plot=1)
