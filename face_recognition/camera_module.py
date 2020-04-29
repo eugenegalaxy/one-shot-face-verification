@@ -2,7 +2,7 @@
 import cv2
 import pyrealsense2 as rs
 import numpy as np
-from directory_utils import *
+from face_recognition.directory_utils import *
 import time
 
 CAM_IMG_DIR_MAX_SIZE_MB = 200  # In megabytes!!

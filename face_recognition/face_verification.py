@@ -4,11 +4,12 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt  # Plotting tool
 import logging
+import os
 
-from cnn_module.face_detect import AlignDlib  # Face alignment method
-from cnn_module.model import create_model  # CNN library
+from face_recognition.cnn_module.face_detect import AlignDlib  # Face alignment method
+from face_recognition.cnn_module.model import create_model  # CNN library
 
-from directory_utils import load_metadata, load_metadata_short, find_language_code, retrieve_info
+from face_recognition.directory_utils import load_metadata, load_metadata_short, find_language_code, retrieve_info
 
 # Debug mode. Enables prints.
 g_DEBUG_MODE = False
@@ -17,21 +18,23 @@ g_DEBUG_MODE = False
 RS_CAM_AVAILABLE = False
 
 if RS_CAM_AVAILABLE is True:
-    from camera_module import getImg_realsense as getImg
-    from camera_module import getManyImg_realsense as getManyImg
+    from face_recognition.camera_module import getImg_realsense as getImg
+    from face_recognition.camera_module import getManyImg_realsense as getManyImg
 
 else:
-    from camera_module import getImg_webcam as getImg
-    from camera_module import getManyImg_webcam as getManyImg
+    from face_recognition.camera_module import getImg_webcam as getImg
+    from face_recognition.camera_module import getManyImg_webcam as getManyImg
+
 
 class FaceVerification(object):
 
-    logging.basicConfig(filename='images/verification_info.log',
+    path = os.path.dirname(os.path.abspath(__file__))
+    logging.basicConfig(filename=path + '/images/verification_info.log',
                         level=logging.DEBUG,
                         # filemode='w',
                         format='%(asctime)s :: %(message)s')
-    weights_pt = 'cnn_module/weights/nn4.small2.v1.h5'
-    landmarks_pt = 'cnn_module/models/landmarks.dat'
+    weights_pt = path + '/cnn_module/weights/nn4.small2.v1.h5'
+    landmarks_pt = path + '/cnn_module/models/landmarks.dat'
 
     RECOGNITION_THRESHOLD = 0.65
     img_mode = None  # Image Mode variable
@@ -71,7 +74,7 @@ class FaceVerification(object):
         assert (self.img_mode is not None), 'No image mode is selected. See FaceVerification.setImgMode() function.'
 
         if self.img_mode == 0:
-            fresh_image = self.getImg(save_path='images/new_entries')
+            fresh_image = self.getImg(save_path=self.path + '/images/new_entries')
 
             target_features = self.get_features_img(fresh_image)
             if type(target_features) == int:

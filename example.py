@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
-from face_verification import FaceVerification
+
+import sys
+import os
+sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+from face_recognition.face_verification import FaceVerification
 
 
 def verify_target():
     # STEP 1: Instantiate class object.
     FV = FaceVerification()
-
+    path = os.path.dirname(os.path.abspath(__file__))
+    print(path)
     # STEP 2: Initilalise photo database (images to compare new entries to)
-    database_1 = 'images/manual_database'  # Option 1
-    database_2 = 'images/mysql_database'   # Option 2
+    database_1 = path + '/face_recognition/images/manual_database'  # Option 1
+    database_2 = path + '/face_recognition/images/mysql_database'   # Option 2
     FV.initDatabase(database_2, target_names=1)
 
     # STEP 3: Choose image acquisition mode (RECOMMENDED Mode 2)
@@ -17,11 +22,11 @@ def verify_target():
 
     # STEP 4: Specify folder where NEWly captured images are and run the face verifier!
     # Options for Rebecca (not for general purpose)
-    dir_path_1 = 'images/new_entries/jevgenijs_galaktionovs'
-    dir_path_2 = 'images/new_entries/jesper_bro'
-    dir_path_3 = 'images/new_entries/lelde_skrode'
-    dir_path_4 = 'images/new_entries/hugo_markoff'
-    dir_path_5 = 'images/new_entries/arnold'
+    dir_path_1 = path + '/face_recognition/images/new_entries/jevgenijs_galaktionovs'
+    dir_path_2 = path + '/face_recognition/images/new_entries/jesper_bro'
+    dir_path_3 = path + '/face_recognition/images/new_entries/lelde_skrode'
+    dir_path_4 = path + '/face_recognition/images/new_entries/hugo_markoff'
+    dir_path_5 = path + '/face_recognition/images/new_entries/arnold'
 
     info, images = FV.predict(directory_path=dir_path_1, plot=1)
 
