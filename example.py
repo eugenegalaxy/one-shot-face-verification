@@ -36,7 +36,28 @@ def verify_target():
 if __name__ == "__main__":
     target_info, target_images = verify_target()
     # target_info: Dictionary with information about the recognized person.
-    #   To access data, use target_info[name_of_the_key] where name_of_the_key are keys. Example target_info['fullName']
-    #   Note: target_info will always contain 'fullName', 'languageCode' and 'voiceRec'. So you can always take it.
     # target_images: A list of image paths from the database of the person that was recognized ('just in case')
-    print("\n".join("{}\t{}".format(k, v) for k, v in target_info.items()))  # Just to print dictionary line by line
+
+    # All keys that can be available:
+
+    # This keys are ALWAYS available
+    if 'fullName' in target_info.keys():
+        print('fullName is {}'.format(target_info['fullName']))
+    if 'languageCode' in target_info.keys():
+        print('languageCode is {}'.format(target_info['languageCode']))
+    if 'voiceRec' in target_info.keys():
+        print('voiceRec is {}'.format(target_info['voiceRec']))
+
+    # This keys re available only if database is mysql_database
+    if 'weightKg' in target_info.keys():
+        print('weightKg is {}'.format(target_info['weightKg']))
+    if 'age' in target_info.keys():
+        print('age is {}'.format(target_info['age']))
+    if 'heightCm' in target_info.keys():
+        print('heightCm is {}'.format(target_info['heightCm']))
+    if 'socialMediaLink' in target_info.keys():
+        print('socialMediaLink is {}'.format(target_info['socialMediaLink']))
+    if 'nationality' in target_info.keys():
+        print('nationality is {}'.format(target_info['nationality']))
+    if 'empId' in target_info.keys():
+        print('empId is {}'.format(target_info['empId']))
