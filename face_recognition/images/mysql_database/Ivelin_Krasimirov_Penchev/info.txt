@@ -1,0 +1,8 @@
+empId: 6
+fullName: Ivelin Krasimirov Penchev
+age: 24
+nationality: Bulgarian
+languageCode: bg
+heightCm: 185
+weightKg: 77
+socialMediaLink: https://www.linkedin.com/in/penchevivelin/

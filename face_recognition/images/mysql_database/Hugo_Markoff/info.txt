@@ -1,0 +1,8 @@
+empId: 2
+fullName: Hugo Markoff
+age: 25
+nationality: Swedish
+languageCode: sv
+heightCm: 189
+weightKg: 85
+socialMediaLink: https://www.linkedin.com/in/hugo-markoff-b3053216b/

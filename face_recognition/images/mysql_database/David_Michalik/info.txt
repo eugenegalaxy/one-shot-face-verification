@@ -1,0 +1,8 @@
+empId: 14
+fullName: David Michalik
+age: 24
+nationality: Hungarian
+languageCode: hu
+heightCm: 180
+weightKg: 75
+socialMediaLink: https://www.linkedin.com/in/david-michalik95/

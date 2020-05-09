@@ -1,0 +1,8 @@
+empId: 18
+fullName: Jesper Bro Rosenberg
+age: 28
+nationality: Danish
+languageCode: dk
+heightCm: 176
+weightKg: 75
+socialMediaLink: https://www.linkedin.com/in/jesper-bro-rosenberg-8238b6113/
