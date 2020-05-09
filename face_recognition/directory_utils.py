@@ -81,7 +81,7 @@ def load_metadata_short(path, names=None):  # TODO Name Printing
 
 
 def retrieve_info(path):
-
+    print('path: {}'.format(path))
     assert(os.path.isdir(path) is True), 'Provided path is not a directory!'
 
     image_path_list = []
@@ -117,15 +117,16 @@ def retrieve_info(path):
         if ext == '.jpg' or ext == '.jpeg':
             image_path = os.path.join(path, file_name)
             image_path_list.append(image_path)
-        elif ext == '.txt':
+        # elif ext == '.txt': # This one doesnt work together with new feature .txt files.
+        elif file_name == 'info.txt':
             text_path = os.path.join(path, file_name)
             with open(text_path) as f:
                 lines = [line.rstrip('\n') for line in f]
                 text_data.append(lines)
         elif os.path.isdir(os.path.join(path, file_name)) is True:
-            print('Directory "{}" found. Ignoring it.'.format(file_name))
+            print('Information Retrieval -> Directory "{}" found. Ignoring it.'.format(file_name))
         else:
-            print('File "{}" found. Ignoring it.'.format(file_name))
+            print('Information Retrieval -> File "{}" found. Ignoring it.'.format(file_name))
     text_data = [item for sublist in text_data for item in sublist]  # Flatten list of lists into a list.
     for item in text_data:
         ignore_strings = ['www', 'http']

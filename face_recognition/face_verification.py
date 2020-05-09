@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import time
 
 import cv2
 import numpy as np
@@ -9,7 +10,8 @@ import os
 from face_recognition.cnn_module.face_detect import AlignDlib  # Face alignment method
 from face_recognition.cnn_module.model import create_model  # CNN library
 
-from face_recognition.directory_utils import load_metadata, load_metadata_short, find_language_code, retrieve_info
+from face_recognition.directory_utils import load_metadata, load_metadata_short, find_language_code, \
+    retrieve_info, IdentityMetadata, IdentityMetadata_short
 
 # Debug mode. Enables prints.
 g_DEBUG_MODE = False
@@ -142,7 +144,6 @@ class FaceVerification(object):
             target_path = target_base + '/' + target_name
             target_info, target_images = retrieve_info(target_path)
             lang_code, lang_str = find_language_code(self.database_metadata[min_idx])
-
             if g_DEBUG_MODE is True:
                 print("Target recognized as {0} with {1:1.3f} score. Language: {2} \
                       ".format(target_info['fullName'], min_dist, target_info['nationality']))
@@ -204,17 +205,22 @@ class FaceVerification(object):
         embedded = np.zeros((metadata.shape[0], 128))
         embedded_flt = [0] * len(metadata)
         for i, m in enumerate(metadata):
-            img = self.load_image(m.image_path())
-            aligned_img = self.align_image(img)
-            if aligned_img is None:
-                embedded_flt[i] = 1
-                if g_DEBUG_MODE is True:
-                    print('Cannot locate face in {} -> Excluded from verification'.format(m.image_path()))
-                logging.info('Cannot locate face in {} -> Excluded from verification'.format(m.image_path()))
-            else:
-                aligned_img = (aligned_img / 255.).astype(np.float32)  # scale RGB values to interval [0,1]
-                embedded[i] = self.nn4_small2_pretrained.predict(np.expand_dims(aligned_img, axis=0))[0]
 
+            features = self.read_features_from_disk(m)
+            if features is not None:
+                embedded[i] = features
+            else:
+                img = self.load_image(m.image_path())
+                aligned_img = self.align_image(img)
+                if aligned_img is None:
+                    embedded_flt[i] = 1
+                    if g_DEBUG_MODE is True:
+                        print('Cannot locate face in {} -> Excluded from verification'.format(m.image_path()))
+                    logging.info('Cannot locate face in {} -> Excluded from verification'.format(m.image_path()))
+                else:
+                    aligned_img = (aligned_img / 255.).astype(np.float32)  # scale RGB values to interval [0,1]
+                    embedded[i] = self.nn4_small2_pretrained.predict(np.expand_dims(aligned_img, axis=0))[0]
+                    self.save_features_on_disk(m, embedded[i])
         bad_idx = [i for i, e in enumerate(embedded_flt) if e == 1]  # indices of photos that failed face-aligning.
         embedded = np.delete(embedded, bad_idx, 0)
         metadata = np.delete(metadata, bad_idx, 0)
@@ -288,3 +294,51 @@ class FaceVerification(object):
             return False
         else:
             return True
+
+    def save_features_on_disk(self, metadata, features, overwrite_txt=None):
+        features_str = str(features)
+        if isinstance(metadata, IdentityMetadata):
+            parent_path = os.path.join(metadata.base, metadata.name)
+        elif isinstance(metadata, IdentityMetadata_short):
+            parent_path = metadata.base
+        else:
+            raise TypeError('Argument "metadata" is neither IdentityMetadata or IdentityMetadata_short type.')
+
+        file_name_no_ext = os.path.splitext(metadata.file)[0]
+        file_name_ext_txt = file_name_no_ext + '.txt'
+        path_file = os.path.join(parent_path, file_name_ext_txt)
+
+        if file_name_ext_txt in os.listdir(parent_path) and overwrite_txt is None:
+            if g_DEBUG_MODE is True:
+                print('{} already exists'.format(file_name_ext_txt))
+        else:
+            with open(path_file, "w") as file:
+                file.write(features_str)
+                file.close()
+
+    def read_features_from_disk(self, metadata):
+        if isinstance(metadata, IdentityMetadata):
+            parent_path = os.path.join(metadata.base, metadata.name)
+        elif isinstance(metadata, IdentityMetadata_short):
+            parent_path = metadata.base
+        else:
+            raise TypeError('Argument "path" is neither IdentityMetadata or IdentityMetadata_short type.')
+
+        file_name_no_ext = os.path.splitext(metadata.file)[0]
+        file_name_ext_txt = file_name_no_ext + '.txt'
+        path_file = os.path.join(parent_path, file_name_ext_txt)
+        if os.path.exists(path_file):
+            with open(path_file) as f:
+                text = f.read()
+                text = text.split()
+                text[0] = text[0].replace('[', '')
+                text[-1] = text[-1].replace(']', '')
+                for item in text:
+                    try:
+                        item = float(item)
+                    except ValueError:
+                        text.remove(item)
+                text = np.array(text)
+            return text
+        else:
+            return None

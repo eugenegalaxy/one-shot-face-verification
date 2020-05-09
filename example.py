@@ -2,7 +2,13 @@
 
 import sys
 import os
-sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+import time
+# # Uncomment if have problems with python 2 vs python 3 missunderstanding.
+# if '/opt/ros/melodic/lib/python2.7/dist-packages' in sys.path:
+#     sys.path.remove('/opt/ros/melodic/lib/python2.7/dist-packages')
+# elif '/opt/ros/kinetic/lib/python2.7/dist-packages' in sys.path:
+#     sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+
 from face_recognition.face_verification import FaceVerification
 
 
@@ -28,16 +34,13 @@ def verify_target():
     dir_path_4 = path + '/face_recognition/images/new_entries/hugo_markoff'
     dir_path_5 = path + '/face_recognition/images/new_entries/arnold'
 
-    info, images = FV.predict(directory_path=dir_path_1, plot=1)
-
+    info, images = FV.predict(directory_path=dir_path_1)
+    # info: Dictionary with information about the recognized person.
+    # images: A list of image paths from the database of the person that was recognized ('just in case')
     return info, images
 
 
-if __name__ == "__main__":
-    target_info, target_images = verify_target()
-    # target_info: Dictionary with information about the recognized person.
-    # target_images: A list of image paths from the database of the person that was recognized ('just in case')
-
+def print_target_info(target_info):
     # All keys that can be available:
 
     # This keys are ALWAYS available
@@ -61,3 +64,7 @@ if __name__ == "__main__":
         print('nationality is {}'.format(target_info['nationality']))
     if 'empId' in target_info.keys():
         print('empId is {}'.format(target_info['empId']))
+
+if __name__ == "__main__":
+    target_info, target_images = verify_target()
+    print_target_info(target_info)
