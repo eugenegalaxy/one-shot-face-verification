@@ -85,11 +85,13 @@ class FaceVerification(object):
 
         elif self.img_mode == 1:
 
-            assert single_img_path is not None, 'Parameter single_img_path is not provided in predict() (Selected mode: SINGLE_IMAGE_PATH)'
+            assert single_img_path is not None, 'Parameter single_img_path is not provided in predict() \
+                                                 (Selected mode: SINGLE_IMAGE_PATH)'
 
             fresh_image = cv2.imread(single_img_path, 1)  # Example path: 'images/new_entries/image_0000.jpg'
 
-            assert fresh_image is not None, '"{}" does not exist or path is wrong in predict() (Selected mode: SINGLE_IMAGE_PATH)'.format(single_img_path)
+            assert fresh_image is not None, '"{}" does not exist or path is wrong in predict() \
+                                             (Selected mode: SINGLE_IMAGE_PATH)'.format(single_img_path)
 
             target_features = self.get_features_img(fresh_image)
             if type(target_features) == int:
@@ -103,7 +105,8 @@ class FaceVerification(object):
 
         elif self.img_mode == 2:
 
-            assert directory_path is not None, 'Parameter directory_path is not provided in predict() (Selected mode: ALL_FROM_DIRECTORY)'
+            assert directory_path is not None, 'Parameter directory_path is not provided in predict() \
+                                                (Selected mode: ALL_FROM_DIRECTORY)'
 
             self.entries_metadata = load_metadata_short(directory_path)
             self.entries_features, self.entries_metadata = self.get_features_metadata(self.entries_metadata)
@@ -125,7 +128,7 @@ class FaceVerification(object):
                 print(min_idxs)
 
             min_dist, min_idx, img_idx = self.decision_maker_v2(all_dists, avg_dists, min_dists, min_idxs)
-            fresh_image = self.entries_metadata[img_idx]  # NOTE: Crappy name -> for sake of consisency with other img_mode cases above.
+            fresh_image = self.entries_metadata[img_idx]  # NOTE: Crappy name -> consisency with other img_mode cases
             fresh_image = self.load_image(fresh_image.image_path())
 
         target_recognised = self.threshold_check(min_dist)
@@ -138,15 +141,16 @@ class FaceVerification(object):
             lang_code, lang_str = find_language_code(self.database_metadata[min_idx])
 
             if g_DEBUG_MODE is True:
-                print("Target recognized as {0} with {1:1.3f} score. Language: {2}".format(target_info['fullName'], min_dist, target_info['nationality']))
+                print("Target recognized as {0} with {1:1.3f} score. Language: {2} \
+                      ".format(target_info['fullName'], min_dist, target_info['nationality']))
 
             logging.info("Target recognized as {0}. Language: {1}".format(str(target_name), target_info['nationality']))
 
             if plot is not None:
                 plt.figure(num="Face Verification", figsize=(8, 5))
-                title_part_1 = "Most similar to {0} with Distance of {1:1.3f}\n".format(target_name, min_dist)
-                title_part_2 = "Language code '{0}': {1}.".format(target_info['languageCode'], target_info['nationality'])
-                plt.suptitle(title_part_1 + title_part_2)
+                title_1 = "Most similar to {0} with Distance of {1:1.3f}\n".format(target_name, min_dist)
+                title_2 = "Language code '{0}': {1}.".format(target_info['languageCode'], target_info['nationality'])
+                plt.suptitle(title_1 + title_2)
                 plt.subplot(121)
                 fresh_image = fresh_image[..., ::-1]
                 plt.imshow(fresh_image)
@@ -164,7 +168,8 @@ class FaceVerification(object):
             logging.info("Unrecognized person detected.")
             if plot is not None:
                 plt.figure(num="Face Verification", figsize=(8, 5))
-                plt.suptitle("Who's that Pokemon?\n(Unrecognized person detected with {0:1.3f} distance score)".format(min_dist))
+                plt.suptitle("Who's that Pokemon?\n(Unrecognized person detected with \
+                              {0:1.3f} distance score)".format(min_dist))
                 plt.subplot(121)
                 fresh_image = fresh_image[..., ::-1]
                 plt.imshow(fresh_image)
@@ -186,7 +191,6 @@ class FaceVerification(object):
         embedded = np.zeros(128)
         aligned_img = self.align_image(img)
         if aligned_img is None:
-            # raise ValueError('Cannot locate face on the image')
             print('Cannot locate face on image.')
             return -1
         aligned_img = (aligned_img / 255.).astype(np.float32)  # scale RGB values to interval [0,1]
