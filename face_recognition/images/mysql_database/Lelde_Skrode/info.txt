@@ -1,0 +1,8 @@
+empId: 4
+fullName: Lelde Skrode
+age: 26
+nationality: Latvian
+languageCode: lv
+heightCm: 173
+weightKg: 60
+socialMediaLink: https://www.linkedin.com/in/lelde-skrode/

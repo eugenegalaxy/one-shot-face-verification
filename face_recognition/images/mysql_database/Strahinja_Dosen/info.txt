@@ -1,0 +1,8 @@
+empId: 13
+fullName: Strahinja Dosen
+age: 42
+nationality: Serbian
+languageCode: sr
+heightCm: 174
+weightKg: 80
+socialMediaLink: https://www.linkedin.com/in/strahinja-dosen-52b67b2/

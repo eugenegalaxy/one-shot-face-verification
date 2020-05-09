@@ -1,0 +1,8 @@
+empId: 5
+fullName: Iuliu Novak
+age: 22
+nationality: Moldovian
+languageCode: ro
+heightCm: 160
+weightKg: 60
+socialMediaLink: https://www.linkedin.com/in/iuliu-novac-303142128/

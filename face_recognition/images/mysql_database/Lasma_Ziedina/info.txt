@@ -1,0 +1,8 @@
+empId: 9
+fullName: Lasma Ziedina
+age: 26
+nationality: Latvian
+languageCode: lv
+heightCm: 174
+weightKg: 60
+socialMediaLink: https://www.facebook.com/lasma.ziedina.10

@@ -1,0 +1,8 @@
+empId: 10
+fullName: Line Uggerly Jørgensen
+age: 30
+nationality: Danish
+languageCode: dk
+heightCm: 170
+weightKg: 58
+socialMediaLink: https://www.linkedin.com/in/line-uggerly-j%C3%B8rgensen-b6aab1105/

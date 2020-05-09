@@ -1,0 +1,8 @@
+empId: 1
+fullName: Jevgenijs Galaktionovs
+age: 25
+nationality: Latvian
+languageCode: lv
+heightCm: 192
+weightKg: 90
+socialMediaLink: https://www.linkedin.com/in/jevgeny/

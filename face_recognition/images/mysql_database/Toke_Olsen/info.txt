@@ -1,0 +1,8 @@
+empId: 16
+fullName: Toke Olsen
+age: 26
+nationality: Danish
+languageCode: dk
+heightCm: 175
+weightKg: 73
+socialMediaLink: https://www.facebook.com/toke.olsen.3

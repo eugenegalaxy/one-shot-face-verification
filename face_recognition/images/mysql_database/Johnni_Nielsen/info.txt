@@ -1,0 +1,8 @@
+empId: 8
+fullName: Johnni Nielsen
+age: 31
+nationality: Danish
+languageCode: dk
+heightCm: 175
+weightKg: 63
+socialMediaLink: https://www.linkedin.com/in/johnni-nielsen-0a5046b1/

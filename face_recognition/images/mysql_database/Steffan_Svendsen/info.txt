@@ -1,0 +1,8 @@
+empId: 12
+fullName: Steffan Svendsen
+age: 28
+nationality: Danish
+languageCode: dk
+heightCm: 175
+weightKg: 72
+socialMediaLink: https://www.linkedin.com/in/steffan-svendsen/

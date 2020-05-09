@@ -1,0 +1,8 @@
+empId: 3
+fullName: Rebecca Nekou Malihi
+age: 30
+nationality: Swedish
+languageCode: sv
+heightCm: 175
+weightKg: 60
+socialMediaLink: https://www.linkedin.com/in/rebecca-malihi-015230b7/
