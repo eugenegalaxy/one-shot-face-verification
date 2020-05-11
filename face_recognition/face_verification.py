@@ -1,25 +1,21 @@
 #!/usr/bin/env python3
 import time
-
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt  # Plotting tool
-import logging
 import os
-
 from face_recognition.cnn_module.face_detect import AlignDlib  # Face alignment method
 from face_recognition.cnn_module.model import create_model  # CNN library
 
 from face_recognition.directory_utils import load_metadata, load_metadata_short, find_language_code, \
-    retrieve_info, IdentityMetadata, IdentityMetadata_short
+    retrieve_info, IdentityMetadata, IdentityMetadata_short, resize_img
 
-# Debug mode. Enables prints.
-g_DEBUG_MODE = False
 
-# If Intel Real sense camera is connected, set to True. Set False for Webcamera.
-RS_CAM_AVAILABLE = False
+g_DEBUG_MODE = False  # Debug mode. Enables prints.
+g_LOGGER_ENABLE = True
+g_RS_CAM_AVAILABLE = False  # If Intel Real sense camera is connected, set to True. Set False for Webcamera.
 
-if RS_CAM_AVAILABLE is True:
+if g_RS_CAM_AVAILABLE is True:
     from face_recognition.camera_module import getImg_realsense as getImg
     from face_recognition.camera_module import getManyImg_realsense as getManyImg
 
@@ -27,14 +23,20 @@ else:
     from face_recognition.camera_module import getImg_webcam as getImg
     from face_recognition.camera_module import getManyImg_webcam as getManyImg
 
+if g_LOGGER_ENABLE is True:
+    import logging
+
 
 class FaceVerification(object):
 
     path = os.path.dirname(os.path.abspath(__file__))
-    logging.basicConfig(filename=path + '/images/verification_info.log',
-                        level=logging.DEBUG,
-                        # filemode='w',
-                        format='%(asctime)s :: %(message)s')
+
+    if g_LOGGER_ENABLE is True:
+        logging.basicConfig(filename=path + '/images/verification_info.log',
+                            level=logging.DEBUG,
+                            # filemode='w',
+                            format='%(asctime)s :: %(message)s')
+
     weights_pt = path + '/cnn_module/weights/nn4.small2.v1.h5'
     landmarks_pt = path + '/cnn_module/models/landmarks.dat'
 
@@ -46,7 +48,7 @@ class FaceVerification(object):
         self.nn4_small2_pretrained.load_weights(self.weights_pt)  # Use pre-trained weights
         self.alig_model = AlignDlib(self.landmarks_pt)  # Initialize the OpenFace face alignment utility
 
-    if RS_CAM_AVAILABLE is True:
+    if g_RS_CAM_AVAILABLE is True:
         def __del__(self):
             if self.pipeline in locals():
                 self.pipeline.stop()
@@ -123,14 +125,16 @@ class FaceVerification(object):
             avg_dists = np.mean(all_dists, axis=0)
 
             if g_DEBUG_MODE is True:
-                print("================ ALL DISTANCES ================")
-                print(all_dists)
+                # print("================ ALL DISTANCES ================")
+                # print(all_dists)
                 print("============== AVERAGE DISTANCES ==============")
                 print(avg_dists)
                 print("============== MINIMUM DISTANCES ==============")
-                print(min_dists)
-                print("========= INDEX OF MINIMUM DISTANCES ==========")
-                print(min_idxs)
+                for numb, dist in enumerate(min_dists):
+                    idx = int(min_idxs[numb])
+                    print('File: {0} -> Min Dist: {1:1.3f} to image -> {2}. DB Index: {3} '.format(
+                        self.entries_metadata[numb].file, dist,
+                        os.path.join(self.database_metadata[idx].name, self.database_metadata[idx].file), idx))
 
             min_dist, min_idx, img_idx = self.decision_maker_v2(all_dists, avg_dists, min_dists, min_idxs)
             fresh_image = self.entries_metadata[img_idx]  # NOTE: Crappy name -> consisency with other img_mode cases
@@ -147,8 +151,9 @@ class FaceVerification(object):
             if g_DEBUG_MODE is True:
                 print("Target recognized as {0} with {1:1.3f} score. Language: {2} \
                       ".format(target_info['fullName'], min_dist, target_info['nationality']))
-
-            logging.info("Target recognized as {0}. Language: {1}".format(str(target_name), target_info['nationality']))
+            if g_LOGGER_ENABLE is True:
+                logging.info("Target recognized as {0}. Language: {1}".format(
+                    str(target_name), target_info['nationality']))
 
             if plot is not None:
                 plt.figure(num="Face Verification", figsize=(8, 5))
@@ -168,8 +173,8 @@ class FaceVerification(object):
         else:
             if g_DEBUG_MODE is True:
                 print("Unrecognized person detected.")
-
-            logging.info("Unrecognized person detected.")
+            if g_LOGGER_ENABLE is True:
+                logging.info("Unrecognized person detected.")
             if plot is not None:
                 plt.figure(num="Face Verification", figsize=(8, 5))
                 plt.suptitle("Who's that Pokemon?\n(Unrecognized person detected with \
@@ -193,6 +198,8 @@ class FaceVerification(object):
 
     def get_features_img(self, img):
         embedded = np.zeros(128)
+        if img.shape[0] > 500:
+            img = resize_img(img, adjust_to_width=500)
         aligned_img = self.align_image(img)
         if aligned_img is None:
             print('Cannot locate face on image.')
@@ -211,12 +218,15 @@ class FaceVerification(object):
                 embedded[i] = features
             else:
                 img = self.load_image(m.image_path())
+                if img.shape[1] > 500:
+                    img = resize_img(img, adjust_to_width=500)
                 aligned_img = self.align_image(img)
                 if aligned_img is None:
                     embedded_flt[i] = 1
                     if g_DEBUG_MODE is True:
                         print('Cannot locate face in {} -> Excluded from verification'.format(m.image_path()))
-                    logging.info('Cannot locate face in {} -> Excluded from verification'.format(m.image_path()))
+                    if g_LOGGER_ENABLE is True:
+                        logging.info('Cannot locate face in {} -> Excluded from verification'.format(m.image_path()))
                 else:
                     aligned_img = (aligned_img / 255.).astype(np.float32)  # scale RGB values to interval [0,1]
                     embedded[i] = self.nn4_small2_pretrained.predict(np.expand_dims(aligned_img, axis=0))[0]
