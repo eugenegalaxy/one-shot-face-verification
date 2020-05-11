@@ -166,4 +166,4 @@ def save_employee_data(save_path):
         print('Two tables are not connected by any FOREIGN KEY')
 
 
-save_employee_data('images/mysql_database')
+save_employee_data('face_recognition/images/mysql_database')
