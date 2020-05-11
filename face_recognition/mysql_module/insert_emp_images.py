@@ -18,7 +18,8 @@ def insert_employee_images(fullName, empImage, empId):
         connection = mysql.connector.connect(host='localhost',
                                              database='ReallyARobot',
                                              user='root',
-                                             password='123456')
+                                             #password='123456'
+                                             )
         connection.set_charset_collation('utf8')  # Default utf-8 encoding fails to read BLOB(images) data
         cursor = connection.cursor()
         sql_query = """ INSERT INTO employee_images
@@ -41,8 +42,8 @@ def insert_employee_images(fullName, empImage, empId):
             print("MySQL connection is closed")
 
 
-# # # target_database folder -> 1x image of 17 people divided in directories
-# img_paths = load_metadata('images/manual_database', names=1)
+# # target_database folder -> 1x image of 17 people divided in directories
+# img_paths = load_metadata('./face_recognition/images/manual_database', names=1)
 # img_paths = [item.image_path() for item in img_paths]
 
 # insert_employee_images("Iuliu Novak",               img_paths[0],  5)
@@ -65,10 +66,38 @@ def insert_employee_images(fullName, empImage, empId):
 # insert_employee_images("Uffe Koch",                 img_paths[17], 17)
 
 
+# path = '/home/eugenegalaxy/Desktop/extra_images'
+# img_paths = load_metadata(path, names=1)
+# img_paths = [item.image_path() for item in img_paths]
+# insert_employee_images("Hugo Markoff",img_paths[0],  2)
+# insert_employee_images("Hugo Markoff",img_paths[1],  2)
+# insert_employee_images("Hugo Markoff",img_paths[2],  2)
+# insert_employee_images("Hugo Markoff",img_paths[3],  2)
+# insert_employee_images("Hugo Markoff",img_paths[4],  2)
+# insert_employee_images("Hugo Markoff",img_paths[5],  2)
+# insert_employee_images("Hugo Markoff",img_paths[6],  2)
+# insert_employee_images("Hugo Markoff",img_paths[7],  2)
+# insert_employee_images("Hugo Markoff",img_paths[8],  2)
+# insert_employee_images("Hugo Markoff",img_paths[9],  2)
 
+# insert_employee_images("Jevgenijs Galaktionovs",    img_paths[10],  1)
+# insert_employee_images("Jevgenijs Galaktionovs",    img_paths[11],  1)
+# insert_employee_images("Jevgenijs Galaktionovs",    img_paths[12],  1)
+# insert_employee_images("Jevgenijs Galaktionovs",    img_paths[13],  1)
+# insert_employee_images("Jevgenijs Galaktionovs",    img_paths[14],  1)
+# insert_employee_images("Jevgenijs Galaktionovs",    img_paths[15],  1)
+# insert_employee_images("Jevgenijs Galaktionovs",    img_paths[16],  1)
+# insert_employee_images("Jevgenijs Galaktionovs",    img_paths[17],  1)
+# insert_employee_images("Jevgenijs Galaktionovs",    img_paths[18],  1)
+# insert_employee_images("Jevgenijs Galaktionovs",    img_paths[19],  1)
 
-img_paths = load_metadata_short('images/new_entries')
-img_paths = [str(item) for item in img_paths]
-insert_employee_images("Jevgenijs Galaktionovs", img_paths[0], 1)
-insert_employee_images("Jevgenijs Galaktionovs", img_paths[1], 1)
-# TODO place to insert more images from some extra folder
+# insert_employee_images("Lelde Skrode",              img_paths[20],  4)
+# insert_employee_images("Lelde Skrode",              img_paths[21],  4)
+# insert_employee_images("Lelde Skrode",              img_paths[22],  4)
+# insert_employee_images("Lelde Skrode",              img_paths[23],  4)
+# insert_employee_images("Lelde Skrode",              img_paths[24],  4)
+# insert_employee_images("Lelde Skrode",              img_paths[25],  4)
+# insert_employee_images("Lelde Skrode",              img_paths[26],  4)
+# insert_employee_images("Lelde Skrode",              img_paths[27],  4)
+# insert_employee_images("Lelde Skrode",              img_paths[28],  4)
+# insert_employee_images("Lelde Skrode",              img_paths[29],  4)
