@@ -11,7 +11,7 @@ from face_recognition.directory_utils import load_metadata, load_metadata_short,
     retrieve_info, IdentityMetadata, IdentityMetadata_short, resize_img
 
 
-g_DEBUG_MODE = True  # Debug mode. Enables prints.
+g_DEBUG_MODE = False  # Debug mode. Enables prints.
 g_LOGGER_ENABLE = True
 g_RS_CAM_AVAILABLE = False  # If Intel Real sense camera is connected, set to True. Set False for Webcamera.
 
