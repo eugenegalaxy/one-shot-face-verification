@@ -12,34 +12,31 @@ time_import_start = time.time()
 from face_recognition.face_verification import FaceVerification
 time_import_stop = time.time()
 
+PRINT_EXECUTION_TIMES = False
 
-def verify_target():
+def verify_target(database, target, img_mode):
     # STEP 1: Instantiate class object.
     time_FV = time.time()
     FV = FaceVerification()
     time_FV_stop = time.time()
-    
-    path = os.path.dirname(os.path.abspath(__file__))
-    # STEP 2: Initilalise photo database (images to compare new entries to)
-    database_1 = path + '/face_recognition/images/manual_database'  # Option 1
-    database_2 = path + '/face_recognition/images/mysql_database'   # Option 2
+
+    # STEP 2: Initilalise photo database
     time1 = time.time()
-    FV.initDatabase(database_2)
+    FV.initDatabase(database)
     time1_stop = time.time()
+
     # STEP 3: Choose image acquisition mode (RECOMMENDED Mode 2)
-    ALL_FROM_DIRECTORY = 2  # Provide path to directory and scan ALL images in it (NOTE: No subdirectories!)
-    FV.setImgMode(ALL_FROM_DIRECTORY)
+    FV.setImgMode(img_mode)
 
-    # STEP 4: Specify folder where NEWly captured images are and run the face verifier!
-    # Options for Rebecca (not for general purpose)
-    dir_path_1 = path + '/face_recognition/images/new_entries/jevgenijs_galaktionovs'
-    dir_path_2 = path + '/face_recognition/images/new_entries/jesper_bro'
-    dir_path_3 = path + '/face_recognition/images/new_entries/lelde_skrode'
-    dir_path_4 = path + '/face_recognition/images/new_entries/hugo_markoff'
-    dir_path_5 = path + '/face_recognition/images/new_entries/arnold'
-
+    # STEP 4: Run the face verifier!
     time2 = time.time()
-    info, images = FV.predict(directory_path=dir_path_2)
+    if img_mode == 2:
+        info, images = FV.predict(directory_path=target)
+    elif img_mode == 1:
+        info, images = FV.predict(single_img_path=target)
+    else:
+        assert ValueError('img_mode is not provided to verify_target')
+
     time2_stop = time.time()
 
     times = [0, 0, 0]
@@ -79,17 +76,32 @@ def print_target_info(target_info):
 if __name__ == "__main__":
     time_main_start = time.time()
 
-    target_info, target_images, times = verify_target()
+    path = os.path.dirname(os.path.abspath(__file__))
+
+    database_1 = path + '/face_recognition/images/manual_database'  # Option 1
+    database_2 = path + '/face_recognition/images/mysql_database'   # Option 2
+
+    dir_path_1 = path + '/face_recognition/images/new_entries/jevgenijs_galaktionovs'
+    dir_path_2 = path + '/face_recognition/images/new_entries/jesper_bro'
+    dir_path_3 = path + '/face_recognition/images/new_entries/lelde_skrode'
+    dir_path_4 = path + '/face_recognition/images/new_entries/hugo_markoff'
+    dir_path_5 = path + '/face_recognition/images/new_entries/arnold'
+
+    ALL_FROM_DIRECTORY = 2
+    SINGLE_IMAGE_PATH = 1
+
+    target_info, target_images, times = verify_target(database_2, dir_path_5, ALL_FROM_DIRECTORY)
     print_target_info(target_info)
 
     time_main_stop = time.time()
     impo_time = time_import_stop - time_import_start
     main_time = time_main_stop - time_main_start
 
-    print('\n========================= Execution Times ===========================')
-    print('Module imports executed in {0:1.2f} seconds.'.format(impo_time))
-    print('FV = FaceVerification() executed in {0:1.2f} seconds.'.format(times[0]))
-    print('FV.initDatabase() executed in {0:1.2f} seconds.'.format(times[1]))
-    print('FV.predict() executed in {0:1.2f} seconds.'.format(times[2]))
-    print('Program executed in {0:1.2f} seconds.'.format(main_time))
-    print('Total time is {0:1.2f} seconds.'.format(impo_time + main_time))
+    if PRINT_EXECUTION_TIMES is True:
+        print('\n========================= Execution Times ===========================')
+        print('Module imports executed in {0:1.2f} seconds.'.format(impo_time))
+        print('FV = FaceVerification() executed in {0:1.2f} seconds.'.format(times[0]))
+        print('FV.initDatabase() executed in {0:1.2f} seconds.'.format(times[1]))
+        print('FV.predict() executed in {0:1.2f} seconds.'.format(times[2]))
+        print('Program executed in {0:1.2f} seconds.'.format(main_time))
+        print('Total time is {0:1.2f} seconds.'.format(impo_time + main_time))

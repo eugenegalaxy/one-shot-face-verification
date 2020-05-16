@@ -11,7 +11,7 @@ from face_recognition.directory_utils import load_metadata, load_metadata_short,
     retrieve_info, IdentityMetadata, IdentityMetadata_short, resize_img
 
 
-g_DEBUG_MODE = False  # Debug mode. Enables prints.
+g_DEBUG_MODE = True  # Debug mode. Enables prints.
 g_LOGGER_ENABLE = True
 g_RS_CAM_AVAILABLE = False  # If Intel Real sense camera is connected, set to True. Set False for Webcamera.
 
@@ -106,9 +106,13 @@ class FaceVerification(object):
             all_dist, min_dist, min_idx = self.dist_target_to_database(target_features)
 
             if g_DEBUG_MODE is True:
-                listed_score = list(enumerate(all_dist, start=1))
-                for item in listed_score:
-                    print('Target score: {}'.format(item))
+                # listed_score = list(enumerate(all_dist))
+                # for item in listed_score:
+                #     print('Target score: {}'.format(item))
+                for numb, dist in enumerate(all_dist):
+                    # idx = int(min_idxs[numb])
+                    print('File-> Dist: {0:1.3f} to image -> {1}. DB Index: {2} '.format(
+                        dist, os.path.join(self.database_metadata[numb].name, self.database_metadata[numb].file), numb))
 
         elif self.img_mode == 2:
 
