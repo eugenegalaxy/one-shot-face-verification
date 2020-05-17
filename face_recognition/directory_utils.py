@@ -14,9 +14,9 @@ class IdentityMetadata():
         self.file = file  # image file name
 
     def __repr__(self):
-        return self.image_path()
+        return self.img_path()
 
-    def image_path(self):
+    def img_path(self):
         return os.path.join(self.base, self.name, self.file)
 
 
@@ -27,9 +27,9 @@ class IdentityMetadata_short():
         self.file = file  # image file name
 
     def __repr__(self):
-        return self.image_path()
+        return self.img_path()
 
-    def image_path(self):
+    def img_path(self):
         return os.path.join(self.base, self.file)
 
 
@@ -283,6 +283,18 @@ def dir_clear(path, save_one_file=None):
         for file in file_list:
             os.remove(os.path.join(path, file))
 
+
+def trim_list_std(list_input, lower_std, upper_std):
+    '''
+        Note: lower_std -> smaller number trims more lower bracket outliers.
+              upper_std -> smaller number trims more upper bracket outliers.
+    '''
+    list_input = np.array(list_input)
+    mean = np.mean(list_input)
+    sd = np.std(list_input)
+    final_list = [x for x in list_input if (x > mean - lower_std * sd)]
+    final_list = [x for x in final_list if (x < mean + upper_std * sd)]
+    return final_list
 
 # coding: utf8
 # ISO639-3 language codesin (alpha_2,language_name) format.
