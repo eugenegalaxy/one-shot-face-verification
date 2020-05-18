@@ -45,7 +45,8 @@ def query_database(query, args=None):
         connection = mysql.connector.connect(host=g_host_address,
                                              database=g_database_name,
                                              user=g_username,
-                                             password=g_password)
+                                             #password=g_password
+                                             )
 
         connection.set_charset_collation(ENCODING)  # Default utf-8 encoding fails to read BLOB(images) data
 
@@ -59,7 +60,7 @@ def query_database(query, args=None):
         return data
 
     except mysql.connector.Error as error:
-        print('Failed to read BLOB data from MySQL table {}'.format(error))
+        print(error)
 
     finally:
         if (connection.is_connected()):
@@ -165,4 +166,4 @@ def save_employee_data(save_path):
         print('Two tables are not connected by any FOREIGN KEY')
 
 
-save_employee_data('images/mysql_database')
+save_employee_data('face_recognition/images/mysql_database')

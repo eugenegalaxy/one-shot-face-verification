@@ -2,7 +2,9 @@
 import os.path
 import re
 import numpy as np
+import cv2
 
+g_DEBUG_MODE = False  # Debug mode. Enables prints.
 
 class IdentityMetadata():
     def __init__(self, base, name, file):
@@ -12,9 +14,9 @@ class IdentityMetadata():
         self.file = file  # image file name
 
     def __repr__(self):
-        return self.image_path()
+        return self.img_path()
 
-    def image_path(self):
+    def img_path(self):
         return os.path.join(self.base, self.name, self.file)
 
 
@@ -25,9 +27,9 @@ class IdentityMetadata_short():
         self.file = file  # image file name
 
     def __repr__(self):
-        return self.image_path()
+        return self.img_path()
 
-    def image_path(self):
+    def img_path(self):
         return os.path.join(self.base, self.file)
 
 
@@ -45,7 +47,7 @@ def load_metadata(path, names=None):
                     full_name_str = str()
                     lang_full = None
 
-                    word_list = re.split(r'[`\-=~!@#$%^&*()_+\[\]{};\'\\:"|<,./<>?\s]', str(folder_name))  # split words by special chars
+                    word_list = re.split(r'[`\-=~!@#$%^&*()_+\[\]{};\'\\:"|<,./<>?\s]', str(folder_name))
                     for word in word_list:
                         if word.count("") == 3 and [item for item in languages if item[0] == word]:
                             lang_full = [item[1] for item in languages if item[0] == word]
@@ -54,9 +56,9 @@ def load_metadata(path, names=None):
                             full_name_str += (" " + word)
 
                     if lang_full is not None:
-                        print_part_1 = ('Image {}:'.format(counter) + '\t').expandtabs(4)
-                        print_part_2 = ('{}'.format(full_name_str) + '\t' + ' Language: {}'.format(lang_main[0])).expandtabs(30)
-                        print(print_part_1 + print_part_2)
+                        p1 = ('Image {}:'.format(counter) + '\t').expandtabs(4)
+                        p2 = ('{}'.format(full_name_str) + '\t' + ' Language: {}'.format(lang_main[0])).expandtabs(30)
+                        print(p1 + p2)
                     else:
                         print_nolang = ('Image {}:'.format(counter) + '\t').expandtabs(4) + ('{}'.format(full_name_str))
                         print(print_nolang)
@@ -81,7 +83,8 @@ def load_metadata_short(path, names=None):  # TODO Name Printing
 
 
 def retrieve_info(path):
-    print('path: {}'.format(path))
+    if g_DEBUG_MODE is True:
+        print('path: {}'.format(path))
     assert(os.path.isdir(path) is True), 'Provided path is not a directory!'
 
     image_path_list = []
@@ -106,6 +109,7 @@ def retrieve_info(path):
                 text_data_dic['voiceRec'] = 'en-US'
         else:
             person_name.append(word)
+            text_data_dic['nationality'] = 'English'
             text_data_dic['languageCode'] = 'en'
             text_data_dic['voiceRec'] = 'en-US'
     person_name = ' '.join(person_name)
@@ -124,9 +128,11 @@ def retrieve_info(path):
                 lines = [line.rstrip('\n') for line in f]
                 text_data.append(lines)
         elif os.path.isdir(os.path.join(path, file_name)) is True:
-            print('Information Retrieval -> Directory "{}" found. Ignoring it.'.format(file_name))
+            if g_DEBUG_MODE is True:
+                print('Information Retrieval -> Directory "{}" found. Ignoring it.'.format(file_name))
         else:
-            print('Information Retrieval -> File "{}" found. Ignoring it.'.format(file_name))
+            if g_DEBUG_MODE is True:
+                print('Information Retrieval -> File "{}" found. Ignoring it.'.format(file_name))
     text_data = [item for sublist in text_data for item in sublist]  # Flatten list of lists into a list.
     for item in text_data:
         ignore_strings = ['www', 'http']
@@ -136,7 +142,8 @@ def retrieve_info(path):
             second_str = item[semicolon_index + 1:]  # Second Str: '123'
             text_data_dic[first_str] = second_str
         else:
-            word_list = re.split(r'[:]', item)  # NOTE Separator symbol is inside r'[]' -> used only : to avoid stripping website link in lists.
+            # NOTE Separator symbol is inside r'[]' -> used only : to avoid stripping website link in lists.
+            word_list = re.split(r'[:]', item)
             if word_list[0] == 'nationality':
                 nationality = word_list[1].strip()
                 if nationality in locale:
@@ -146,6 +153,58 @@ def retrieve_info(path):
             text_data_dic[word_list[0]] = word_list[1]
 
     return text_data_dic, image_path_list
+
+
+def resize_img(img, dim=None, scale=None, adjust_to_width=None):
+    if dim is not None:
+        resized = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
+    elif scale is not None:
+        scale_percent = scale  # percent of original size
+        width = int(img.shape[1] * scale_percent / 100)
+        height = int(img.shape[0] * scale_percent / 100)
+        dim = (width, height)
+        resized = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
+    elif adjust_to_width is not None:
+        res = adjust_to_width / img.shape[1]
+        dim = (adjust_to_width, int(img.shape[0] * res))
+        resized = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
+    else:
+        raise ValueError('No resizing mode is selected.')
+    return resized
+
+def resize_all_in_folder(path, dim=None, scale=None, adjust_to_width=None, save=None, plot=None):
+    resized_imgs = []
+    dirs = os.listdir(path)
+    for item in dirs:
+        f, ext = os.path.splitext(path + item)
+        if ext == '.jpg' or ext == '.jpeg':
+            img = cv2.imread(path + item, 1)
+            if dim is not None:
+                resized = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
+            elif scale is not None:
+                scale_percent = scale  # percent of original size
+                width = int(img.shape[1] * scale_percent / 100)
+                height = int(img.shape[0] * scale_percent / 100)
+                dim = (width, height)
+                resized = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
+            elif adjust_to_width is not None:
+                res = adjust_to_width / img.shape[1]
+                dim = (adjust_to_width, int(img.shape[0] * res))
+                resized = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
+            else:
+                raise ValueError('No resizing mode is selected.')
+
+            if save is not None:
+                full_path = f + '_resized' + ext
+                cv2.imwrite(full_path, resized)
+
+            if plot is not None:
+                cv2.imshow("Resized image {0}x{1}".format(dim[0], dim[1]), resized)
+                cv2.waitKey(0)
+                cv2.destroyAllWindows()
+
+            resized_imgs.append(resized)
+    return resized_imgs
 
 
 def find_language_code(single_metadata, print_text=None):
@@ -198,7 +257,8 @@ def dir_size_guard(path, limit_in_megabytes):
         file_list = sorted(os.listdir(path))
         if len(file_list) == 0:
             break
-        print('Directory size reached limit of {0} megabytes. Deleting file "{1}".'.format(limit_in_megabytes, file_list[0]))
+        print('Directory size reached limit of {0} megabytes. Deleting file "{1}".'.format(
+            limit_in_megabytes, file_list[0]))
         os.remove(os.path.join(path, file_list[0]))
 
 
@@ -223,6 +283,18 @@ def dir_clear(path, save_one_file=None):
         for file in file_list:
             os.remove(os.path.join(path, file))
 
+
+def trim_list_std(list_input, lower_std, upper_std):
+    '''
+        Note: lower_std -> smaller number trims more lower bracket outliers.
+              upper_std -> smaller number trims more upper bracket outliers.
+    '''
+    list_input = np.array(list_input)
+    mean = np.mean(list_input)
+    sd = np.std(list_input)
+    final_list = [x for x in list_input if (x > mean - lower_std * sd)]
+    final_list = [x for x in final_list if (x < mean + upper_std * sd)]
+    return final_list
 
 # coding: utf8
 # ISO639-3 language codesin (alpha_2,language_name) format.
