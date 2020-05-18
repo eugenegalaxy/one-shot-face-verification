@@ -17,14 +17,15 @@ from face_recognition.directory_utils import load_metadata, load_metadata_short,
     retrieve_info, IdentityMetadata, IdentityMetadata_short, resize_img, trim_list_std
 
 
+g_THRESHOLD_UNCERTAINTY = 0.15  # Offset to threshold. Decrease is strangers recognized as identities
+
 g_DEBUG_MODE = False  # Debug mode. Enables prints.
-g_LOGGER_ENABLE = True
+g_LOGGER_ENABLE = False
 g_RS_CAM_AVAILABLE = False  # If Intel Real sense camera is connected, set to True. Set False for Webcamera.
 
 if g_RS_CAM_AVAILABLE is True:
     from face_recognition.camera_module import getImg_realsense as getImg
     from face_recognition.camera_module import getManyImg_realsense as getManyImg
-
 else:
     from face_recognition.camera_module import getImg_webcam as getImg
     from face_recognition.camera_module import getManyImg_webcam as getManyImg
@@ -46,7 +47,7 @@ class FaceVerification(object):
     weights_pt = path + '/cnn_module/weights/nn4.small2.v1.h5'
     landmarks_pt = path + '/cnn_module/models/landmarks.dat'
 
-    def_rec_thr = 0.65  # Default recognition threshold.
+    DEFAULT_THRESHOLD = 0.65  # Default recognition threshold.
     classifier_valid = False  # Variable that decides if classifier will be used (computed)
     SVC = None  # Classificator variable
     SVC_encoder = None  # SVC encoder variable
@@ -145,27 +146,27 @@ class FaceVerification(object):
                 min_idxs = np.zeros(len(self.tg_features))
                 for idx, item in enumerate(self.tg_features):
                     all_dists[idx], min_dists[idx], min_idxs[idx] = self.dist_tg_to_db(item)
-                avg_dists = np.mean(all_dists, axis=0)
-                min_dist, min_idx, img_idx = self.decision_maker_v2(all_dists, avg_dists, min_dists, min_idxs)
+                thr_min_dist, min_idx, img_idx = self.decision_maker_v3(all_dists)
+
+                min_dist = min_dists[img_idx]  # NOTE Crappy name -> consisency with plotting names
                 fresh_img = self.tg_metadata[img_idx]  # NOTE: Crappy name -> consisency with other img_mode cases
                 fresh_img = self.load_img(fresh_img.img_path())
 
                 if g_DEBUG_MODE is True:
-                    print("============== AVERAGE DISTANCES ==============")
-                    print(avg_dists)
                     print("============== MINIMUM DISTANCES ==============")
                     for numb, dist in enumerate(min_dists):
                         idx = int(min_idxs[numb])
-                        print('File: {0} -> Min Dist: {1:1.3f} to img -> {2}. DB Index: {3} '.format(
-                            self.tg_metadata[numb].file, dist,
+                        print('File {0}: {1} -> Min Dist: {2:1.3f} to img -> {3}. DB Index: {4} '.format(
+                            numb, self.tg_metadata[numb].file, dist,
                             os.path.join(self.db_metadata[idx].name, self.db_metadata[idx].file), idx))
 
-                tg_recognised = self.threshold_check(min_dist)
+                thr_min_dist -= g_THRESHOLD_UNCERTAINTY  # HACK
+                tg_recognised = self.threshold_check(thr_min_dist)
                 if tg_recognised is True:
                     db_path = os.path.join(self.db_metadata[min_idx].base, self.db_metadata[min_idx].name)
 
         if tg_recognised is True:
-            tg_info, tg_imgs = retrieve_info(db_path)
+            tg_info, db_imgs = retrieve_info(db_path)
             if g_DEBUG_MODE is True:
                 print("Target recognised as {0} with {1:1.3f} score. Language: {2} \
                       ".format(tg_info['fullName'], min_dist, tg_info['nationality']))
@@ -183,12 +184,12 @@ class FaceVerification(object):
                 fresh_img = fresh_img[..., ::-1]
                 plt.imshow(fresh_img)
                 plt.subplot(122)
-                img2 = self.load_img(tg_imgs[0])
+                img2 = self.load_img(db_imgs[0])
                 img2 = img2[..., ::-1]
                 plt.imshow(img2)
                 plt.show()
 
-            return tg_info, tg_imgs
+            return tg_info, db_imgs
         else:
             if g_DEBUG_MODE is True:
                 print("Unrecognised person detected.")
@@ -235,7 +236,7 @@ class FaceVerification(object):
             else:
                 img = self.load_img(m.img_path())
                 if img.shape[1] > 500:
-                    img = resize_img(img, adjust_to_width=500)
+                    img = resize_img(img, adjust_to_width=700)
                 aligned_img = self.align_img(img)
                 if aligned_img is None:
                     embedded_flt[i] = 1
@@ -256,7 +257,7 @@ class FaceVerification(object):
         else:
             return embedded, metadata
 
-    def decision_maker_v2(self, all_dists, avg_dists, min_dists, min_idxs):
+    def decision_maker_v2(self, all_dists):
         lowest_score = 5  # just a big number for distance scores
         for idx1, item in enumerate(all_dists):
             for idx2, score in enumerate(item):
@@ -265,6 +266,38 @@ class FaceVerification(object):
                     lowest_score_idx = idx2
                     lowest_img_idx = idx1
         return lowest_score, lowest_score_idx, lowest_img_idx
+
+    def decision_maker_v3(self, all_dists):
+        all_dists_trimmed = []
+        all_dists = np.array(all_dists)
+        all_dists_tr = np.transpose(all_dists)
+
+        trimmed_list = []
+        for idx, sub_list in enumerate(all_dists_tr):
+            trimmed_list.append(trim_list_std(sub_list, 1.5, 1))
+
+        avg_dists = []
+        min_dists = []
+        for sub_list in trimmed_list:
+            avg_dists.append(sum(sub_list) / len(sub_list))
+            min_dists.append(min(sub_list))
+
+        avg_dists_minus_thr_uncrt = [item - g_THRESHOLD_UNCERTAINTY for item in avg_dists]  # HACK
+
+        WEIGHT_avg_dist = 0.6
+        WEIGHT_min_dist = 0.4
+        weighted_combined_list = []
+        for x in range(len(avg_dists_minus_thr_uncrt)):
+            element_sum = (min_dists[x] * WEIGHT_min_dist) + (avg_dists_minus_thr_uncrt[x] * WEIGHT_avg_dist)
+            weighted_combined_list.append(element_sum)
+        if g_DEBUG_MODE is True:
+            print('=========== Weighted-Combined scores ===========')
+            print(weighted_combined_list)
+        lowest_score = min(weighted_combined_list)
+        lowest_db_id = weighted_combined_list.index(lowest_score)
+        lowest_tg_id_tmp = np.where(all_dists_tr[lowest_db_id] == min(all_dists_tr[lowest_db_id]))
+        lowest_tg_id = lowest_tg_id_tmp[0][0]
+        return lowest_score, lowest_db_id, lowest_tg_id
 
     def dist_tg_to_db(self, features):
         distances = []  # squared L2 distance between pairs
@@ -300,7 +333,7 @@ class FaceVerification(object):
         return np.sum(np.square(feature1 - feature2))
 
     def threshold_check(self, min_dist):
-        if min_dist > self.def_rec_thr:
+        if min_dist > self.DEFAULT_THRESHOLD:
             return False
         else:
             return True
@@ -384,7 +417,7 @@ class FaceVerification(object):
         opt_idx = np.argmax(f1_scores)
         opt_tau = thresholds[opt_idx]  # Threshold at maximal F1 score
         opt_acc = accuracy_score(identical, distances < opt_tau)  # Accuracy at maximal F1 score
-        print('Accuracy at threshold {0:1.2f} = {1:1.2f}'.format(opt_tau, opt_acc))
+        print('Accuracy {0:1.2f} at threshold {1:1.2f}.'.format(opt_tau, opt_acc))
 
         if plot:
             # Plot F1 score and accuracy as function of distance threshold
@@ -437,7 +470,7 @@ class FaceVerification(object):
         acc_svc = accuracy_score(y_test, self.SVC.predict(X_test))
 
         metadata_root = (db_metadata[0].base).split('/')[-1]
-        print('SVM accuracy = {0:1.2f} on {1}'.format(acc_svc, metadata_root))
+        print('SVM accuracy {0:1.2f} on {1}.'.format(acc_svc, metadata_root))
         if acc_svc < 0.6:
             print('SVM accuracy is too low. Classifier disabled. "Lowest Score" identification enabled.')
         else:
@@ -456,8 +489,7 @@ class FaceVerification(object):
         identity = self.SVC_encoder.inverse_transform(prediction)[0]
 
         avg_dist = self.avg_dist_tg_to_identity(tg_metadata, tg_feature, identity)
-        THRESHOLD_UNCERTAINTY = 0.15  # TODO/HACK
-        if avg_dist < threshold + THRESHOLD_UNCERTAINTY:
+        if avg_dist < threshold + g_THRESHOLD_UNCERTAINTY:
             # print('Target {0} recognised {1}'.format(metadata.file, identity))
             if plot:
                 plt.imshow(img)
