@@ -289,6 +289,9 @@ def trim_list_std(list_input, lower_std, upper_std):
         Note: lower_std -> smaller number trims more lower bracket outliers.
               upper_std -> smaller number trims more upper bracket outliers.
     '''
+
+    # np_list = np.array(list_input)
+
     list_input = np.array(list_input)
     mean = np.mean(list_input)
     sd = np.std(list_input)
