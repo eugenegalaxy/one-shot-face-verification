@@ -17,7 +17,7 @@ from face_recognition.directory_utils import load_metadata, load_metadata_short,
     retrieve_info, IdentityMetadata, IdentityMetadata_short, resize_img, trim_list_std
 
 
-g_DEBUG_MODE = True  # Debug mode. Enables prints.
+g_DEBUG_MODE = False  # Debug mode. Enables prints.
 g_LOGGER_ENABLE = True
 g_RS_CAM_AVAILABLE = False  # If Intel Real sense camera is connected, set to True. Set False for Webcamera.
 
@@ -62,10 +62,10 @@ class FaceVerification(object):
             if self.pipeline in locals():
                 self.pipeline.stop()
 
-    def getimg(self, save_path=None):
+    def getImg(self, save_path=None):
         return getImg(save_path=save_path)
 
-    def getManyimgs(self, numberImg, time_interval_sec, save_path):
+    def getManyImg(self, numberImg, time_interval_sec, save_path):
         return getManyImg(numberImg, time_interval_sec, save_path)
 
     def initdb_and_classifier(self, path, tg_names=None):
@@ -87,40 +87,35 @@ class FaceVerification(object):
 
         assert (self.img_mode is not None), 'No img mode is selected. See FaceVerification.setImgMode() function.'
 
-        if self.img_mode == 0:
-            fresh_img = self.getImg(save_path=self.path + '/imgs/new_entries')
+        if self.img_mode == 0 or self.img_mode == 1:
+
+            if self.img_mode == 0:
+                path_to_save = 'images/new_entries'
+                full_path = os.path.join(self.path, path_to_save)
+                fresh_img = self.getImg(save_path=full_path)
+
+            elif self.img_mode == 1:
+                assert single_img_path is not None, 'Parameter single_img_path is not provided in predict() \
+                                                    (Selected mode: SINGLE_img_PATH)'
+
+                fresh_img = cv2.imread(single_img_path, 1)  # Example path: 'imgs/new_entries/img_0000.jpg'
+
+                assert fresh_img is not None, '"{}" does not exist or path is wrong in predict() \
+                                                (Selected mode: SINGLE_img_PATH)'.format(single_img_path)
 
             tg_features = self.get_features_img(fresh_img)
+
             if type(tg_features) == int:
-                return -1
+                raise TypeError('Cannot detect face on a fresh image...')
+
             all_dist, min_dist, min_idx = self.dist_tg_to_db(tg_features)
 
-            if g_DEBUG_MODE is True:
-                listed_score = list(enumerate(all_dist, start=1))
-                for item in listed_score:
-                    print('Target score: {}'.format(item))
-
-        elif self.img_mode == 1:
-
-            assert single_img_path is not None, 'Parameter single_img_path is not provided in predict() \
-                                                 (Selected mode: SINGLE_img_PATH)'
-
-            fresh_img = cv2.imread(single_img_path, 1)  # Example path: 'imgs/new_entries/img_0000.jpg'
-
-            assert fresh_img is not None, '"{}" does not exist or path is wrong in predict() \
-                                             (Selected mode: SINGLE_img_PATH)'.format(single_img_path)
-
-            tg_features = self.get_features_img(fresh_img)
-            if type(tg_features) == int:
-                return -1
-            all_dist, min_dist, min_idx = self.dist_tg_to_db(tg_features)
+            tg_recognised = self.threshold_check(min_dist)
+            if tg_recognised is True:
+                db_path = os.path.join(self.db_metadata[min_idx].base, self.db_metadata[min_idx].name)
 
             if g_DEBUG_MODE is True:
-                # listed_score = list(enumerate(all_dist))
-                # for item in listed_score:
-                #     print('Target score: {}'.format(item))
                 for numb, dist in enumerate(all_dist):
-                    # idx = int(min_idxs[numb])
                     print('File-> Dist: {0:1.3f} to img -> {1}. DB Index: {2} '.format(
                         dist, os.path.join(self.db_metadata[numb].name, self.db_metadata[numb].file), numb))
 
@@ -142,7 +137,7 @@ class FaceVerification(object):
                     tg_recognised = True
                     for item in self.db_metadata:
                         if item.name == name:
-                            tg_path = os.path.join(item.base, item.name)
+                            db_path = os.path.join(item.base, item.name)
 
             else:
                 all_dists = np.zeros((len(self.tg_features), len(self.db_features)))
@@ -167,16 +162,10 @@ class FaceVerification(object):
 
                 tg_recognised = self.threshold_check(min_dist)
                 if tg_recognised is True:
-                    tg_path = os.path.join(self.db_metadata[min_idx].base, self.db_metadata[min_idx].name)
-
-
-
-
-
-
+                    db_path = os.path.join(self.db_metadata[min_idx].base, self.db_metadata[min_idx].name)
 
         if tg_recognised is True:
-            tg_info, tg_imgs = retrieve_info(tg_path)
+            tg_info, tg_imgs = retrieve_info(db_path)
             if g_DEBUG_MODE is True:
                 print("Target recognised as {0} with {1:1.3f} score. Language: {2} \
                       ".format(tg_info['fullName'], min_dist, tg_info['nationality']))
@@ -230,7 +219,6 @@ class FaceVerification(object):
             img = resize_img(img, adjust_to_width=500)
         aligned_img = self.align_img(img)
         if aligned_img is None:
-            print('Cannot locate face on img.')
             return -1
         aligned_img = (aligned_img / 255.).astype(np.float32)  # scale RGB values to interval [0,1]
         embedded = self.nn4_small2_pretrained.predict(np.expand_dims(aligned_img, axis=0))[0]
@@ -268,15 +256,6 @@ class FaceVerification(object):
         else:
             return embedded, metadata
 
-    def decision_maker_v1(self, all_dists, avg_dists, min_dists, min_idxs):
-        min_val = np.min(avg_dists)
-        min_index = np.where(avg_dists == min_val)
-        new_min_list = []
-        [new_min_list.append(sublist[min_index[0][0]]) for sublist in all_dists]
-        min_index_sublists = new_min_list.index(min(new_min_list))
-        lowest_score = all_dists[min_index_sublists][min_index[0][0]]
-        return lowest_score, min_index[0][0], min_index_sublists
-
     def decision_maker_v2(self, all_dists, avg_dists, min_dists, min_idxs):
         lowest_score = 5  # just a big number for distance scores
         for idx1, item in enumerate(all_dists):
@@ -285,13 +264,6 @@ class FaceVerification(object):
                     lowest_score = score
                     lowest_score_idx = idx2
                     lowest_img_idx = idx1
-
-        # min_val = np.min(avg_dists)
-        # min_index = np.where(avg_dists == min_val)
-        # new_min_list = []
-        # [new_min_list.append(sublist[min_index[0][0]]) for sublist in all_dists]
-        # min_index_sublists = new_min_list.index(min(new_min_list))
-        # lowest_score = all_dists[min_index_sublists][min_index[0][0]]
         return lowest_score, lowest_score_idx, lowest_img_idx
 
     def dist_tg_to_db(self, features):
