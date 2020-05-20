@@ -17,9 +17,6 @@ def accuracy(tp, tn, fp, fn):
     Accuracy is a ratio of correctly predicted observation to the total observations.
     '''
     Accuracy = (tp + tn) / (tp + fp + fn + tn)
-    print_str = '\nAccuracy = {0:1.2f} ({1}/{2})'.format(Accuracy, (tp + tn), (tp + fp + fn + tn))
-    logging.critical(print_str)
-    print(print_str)
     return Accuracy
 
 
@@ -30,9 +27,6 @@ def precision(tp, fp):
     High precision relates to the low false positive rate.
     '''
     Precision = tp / (tp + fp)
-    print_str = 'Precision = {0:1.2f} ({1}/{2})'.format(Precision, tp, (tp + fp))
-    logging.critical(print_str)
-    print(print_str)
     return Precision
 
 
@@ -42,9 +36,6 @@ def recall(tp, fn):
     The question recall answers is: Of all the passengers that truly survived, how many did we label?
     '''
     Recall = tp / (tp + fn)
-    print_str = 'Recall = {0:1.2f} ({1}/{2})'.format(Recall, tp, (tp + fn))
-    logging.critical(print_str)
-    print(print_str)
     return Recall
 
 
@@ -55,9 +46,6 @@ def f1score(rec, prec):
     Best if the cost of false positives and false negatives is very different.
     '''
     F1_Score = 2 * (rec * prec) / (rec + prec)
-    print_str = 'F1 Score =  {:1.2f}'.format(F1_Score)
-    logging.critical(print_str)
-    print(print_str)
     return F1_Score
 
 
@@ -91,7 +79,6 @@ def count_test(db_names, rec_names, tg_names, min_dists):
     fn = 0
     tp = 0
     tn = 0
-    print('\n')
     for idx, name in enumerate(rec_names):
         if name != 'Unrecognised':
             if name == tg_names[idx]:
@@ -109,18 +96,8 @@ def count_test(db_names, rec_names, tg_names, min_dists):
                 fn += 1
 
         print_str = ('{0} T: {1}\t({2:1.2f}) D: {3}\t-> {4}'.format(idx, tg_names[idx], min_dists[idx], name, status)).expandtabs(33)
-        logging.critical(print_str)
+        # logging.critical(print_str)
         # print(print_str)
-
-    logging.critical('\nFalse Positive = {}'.format(fp))
-    logging.critical('False Negative = {}'.format(fn))
-    logging.critical('True Positive = {}'.format(tp))
-    logging.critical('True Negative = {}'.format(tn))
-
-    print('\nFalse Positive = {}'.format(fp))
-    print('False Negative = {}'.format(fn))
-    print('True Positive = {}'.format(tp))
-    print('True Negative = {}'.format(tn))
     return fp, fn, tp, tn
 
 time_start1 = time.time()
@@ -132,29 +109,85 @@ logging.basicConfig(filename=path + '/test_log.log',
 
 db1 = '/face_recognition/images/manual_database'  # Option 1
 db2 = '/face_recognition/images/mysql_database'   # Option 2
-chosen_database = db2
+chosen_database = db1
 FV = init_FaceRec(path + chosen_database)
 
 tg1 = '/face_recognition/images/new_entries'
 chosen_target = tg1
 
-db_names, recog_names, tg_names, min_distances = predict_all(path + chosen_target)
+RUNS = 100
 
+avg_acc = []
+avg_prec = []
+avg_rec = []
+avg_f1 = []
+avg_TP = []
+avg_TN = []
+avg_FP = []
+avg_FN = []
 
 now = datetime.datetime.now()
 logging.critical("\n============================================================================================")
 logging.critical("Session Time:")
 logging.critical(now.strftime("%Y-%m-%d %H:%M:%S"))
+logging.critical('Number of runs: {}'.format(RUNS))
+print('Number of runs: {}'.format(RUNS))
 logging.critical("Databse: {}.".format(chosen_database))
-logging.critical("Targets: {}\n".format(chosen_target))
-FP, FN, TP, TN = count_test(db_names, recog_names, tg_names, min_distances)
+logging.critical("Targets: {}".format(chosen_target))
 
-accuracy(TP, TN, FP, FN)
-PRECISION = precision(TP, FP)
-RECALL = recall(TP, FN)
-f1score(RECALL, PRECISION)
+time2_start = time.time()
+counter = 0
+for x in range(RUNS):
+    print('Run {}'.format(counter))
+    db_names, recog_names, tg_names, min_distances = predict_all(path + chosen_target)
 
-time_stop1 = time.time()
+    FP, FN, TP, TN = count_test(db_names, recog_names, tg_names, min_distances)
+
+    ACCURACY = accuracy(TP, TN, FP, FN)
+    PRECISION = precision(TP, FP)
+    RECALL = recall(TP, FN)
+    F1SCORE = f1score(RECALL, PRECISION)
+
+    avg_acc.append(ACCURACY)
+    avg_prec.append(PRECISION)
+    avg_rec.append(RECALL)
+    avg_f1.append(F1SCORE)
+    avg_TP.append(TP)
+    avg_TN.append(TN)
+    avg_FP.append(FP)
+    avg_FN.append(FN)
+    counter += 1
+
+time2_stop = time.time()
+
+a_acc = sum(avg_acc) / len(avg_acc)
+a_prec = sum(avg_prec) / len(avg_prec)
+a_rec = sum(avg_rec) / len(avg_rec)
+a_f1 = sum(avg_f1) / len(avg_f1)
+a_TP = sum(avg_TP) / len(avg_TP)
+a_TN = sum(avg_TN) / len(avg_TN)
+a_FP = sum(avg_FP) / len(avg_FP)
+a_FN = sum(avg_FN) / len(avg_FN)
+
+logging.critical('\nFalse Positive = {}'.format(int(a_FP)))
+logging.critical('False Negative = {}'.format(int(a_FN)))
+logging.critical('True Positive = {}'.format(int(a_TP)))
+logging.critical('True Negative = {}'.format(int(a_TN)))
+
+print('\nFalse Positive = {}'.format(int(a_FP)))
+print('False Negative = {}'.format(int(a_FN)))
+print('True Positive = {}'.format(int(a_TP)))
+print('True Negative = {}'.format(int(a_TN)))
+
+logging.critical('\nAccuracy = {0:1.2f}'.format(a_acc))
+print('\nAccuracy = {0:1.2f}'.format(a_acc))
+logging.critical('Precision = {0:1.2f}'.format(a_prec))
+print('Precision = {0:1.2f}'.format(a_prec))
+logging.critical('Recall = {0:1.2f}'.format(a_rec))
+print('Recall = {0:1.2f}'.format(a_rec))
+logging.critical('F1 Score =  {:1.2f}'.format(a_f1))
+print('F1 Score =  {:1.2f}'.format(a_f1))
+
 logging.critical("\nHyper Parameters:")
 # print("\nHyper Parameters:")
 
@@ -162,7 +195,8 @@ logging.critical("\nHyper Parameters:")
 logging.critical("g_THRESHOLD_UNCERTAINTY {}".format(g_THRESHOLD_UNCERTAINTY))
 # print("g_THRESHOLD_UNCERTAINTY {}".format(g_THRESHOLD_UNCERTAINTY))
 
-if chosen_database == db1:
+
+if chosen_database == db2:
     logging.critical("g_KNN_or_SVC {}".format(g_KNN_or_SVC))
     # print("g_KNN_or_SVC {}".format(g_KNN_or_SVC))
     logging.critical("g_TARGET_TO_DB_NAME_lowerSTD {}".format(g_TARGET_TO_DB_NAME_lowerSTD))
@@ -185,6 +219,10 @@ if chosen_database == db1:
     logging.critical("g_DEFAULT_THRESHOLD {}".format(g_DEFAULT_THRESHOLD))
     # print("g_DEFAULT_THRESHOLD {}".format(g_DEFAULT_THRESHOLD))
 
+time_stop1 = time.time()
 time_str = "Session executed in {:1.2f} seconds.".format(time_stop1 - time_start1)
+time2_str = "{:1.2f} seconds per one interation.".format((time2_stop - time2_start) / RUNS)
 logging.critical(time_str)
 print(time_str)
+logging.critical(time2_str)
+print(time2_str)

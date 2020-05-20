@@ -3,6 +3,7 @@ import os.path
 import re
 import numpy as np
 import cv2
+import random
 
 g_DEBUG_MODE = False  # Debug mode. Enables prints.
 
@@ -79,6 +80,15 @@ def load_metadata_short(path, names=None):  # TODO Name Printing
         ext = os.path.splitext(file_name)[1]
         if ext == '.jpg' or ext == '.jpeg':
             metadata.append(IdentityMetadata_short(path, file_name))
+    return np.array(metadata)
+
+def load_metadata_short_TESTMODE(path, names=None):  # TODO Name Printing
+    metadata = []
+    ext = ''
+    while ext != '.jpg':
+        file_name = random.choice(os.listdir(path))
+        ext = os.path.splitext(file_name)[1]
+    metadata.append(IdentityMetadata_short(path, file_name))
     return np.array(metadata)
 
 

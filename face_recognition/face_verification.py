@@ -15,26 +15,27 @@ from face_recognition.cnn_module.face_detect import AlignDlib  # Face alignment 
 from face_recognition.cnn_module.model import create_model  # CNN library
 
 from face_recognition.directory_utils import load_metadata, load_metadata_short, \
-    retrieve_info, IdentityMetadata, IdentityMetadata_short, resize_img, trim_list_std
+    retrieve_info, IdentityMetadata, IdentityMetadata_short, resize_img, trim_list_std, \
+    load_metadata_short_TESTMODE
 
 
 
-# Both DB
-g_THRESHOLD_UNCERTAINTY = 0.05  # Offset to threshold. Decrease is strangers recognized as identities
+#  Both DB
+g_THRESHOLD_UNCERTAINTY = 0  # Offset to threshold. Decrease if strangers recognized as identities
 
 # Rich DB
 
-g_KNN_or_SVC = 0  # 0 for KNN, 1 for SVC
-g_TARGET_TO_DB_NAME_lowerSTD = 1  # Don't go lower than 1
-g_TARGET_TO_DB_NAME_upperSTD = 1.5  # Don't go lower than 1
-g_UNRECOGNISED_RATIO = 0.8  # Ratio of unrecognised to others to count target = Unrecognized.
+g_KNN_or_SVC = 1  # 0 for KNN, 1 for SVC
+g_TARGET_TO_DB_NAME_lowerSTD = 4  # Don't go lower than 1
+g_TARGET_TO_DB_NAME_upperSTD = 4  # Don't go lower than 1
+g_UNRECOGNISED_RATIO = 1  # Ratio of unrecognised to others to count target = Unrecognized.
 
 # Poor DB
-g_WEIGHT_avg_dist = 0.6
-g_WEIGHT_min_dist = 0.4
+g_WEIGHT_avg_dist = 0
+g_WEIGHT_min_dist = 1
 g_DMv3_lowerSTD = 1
-g_DMv3_upperSTD = 1.5
-g_DEFAULT_THRESHOLD = 0.65  # Default recognition threshold.
+g_DMv3_upperSTD = 1
+g_DEFAULT_THRESHOLD = 0.48  # Default recognition threshold.
 
 
 
@@ -145,7 +146,7 @@ class FaceVerification(object):
             assert directory_path is not None, 'Parameter directory_path is not provided in predict() \
                                                 (Selected mode: ALL_FROM_DIRECTORY)'
 
-            self.tg_metadata = load_metadata_short(directory_path)
+            self.tg_metadata = load_metadata_short_TESTMODE(directory_path)
             self.tg_features, self.tg_metadata = self.get_features_metadata(self.tg_metadata)
 
             if self.classifier_valid is True:
@@ -194,7 +195,7 @@ class FaceVerification(object):
     def get_features_img(self, img):
         embedded = np.zeros(128)
         if img.shape[0] > 500:
-            img = resize_img(img, adjust_to_width=500)
+            img = resize_img(img, adjust_to_width=700)
         aligned_img = self.align_img(img)
         if aligned_img is None:
             return -1
@@ -217,6 +218,7 @@ class FaceVerification(object):
                 aligned_img = self.align_img(img)
                 if aligned_img is None:
                     embedded_flt[i] = 1
+                    print('Cannot locate face in {} -> Excluded from verification'.format(m.img_path()))
                     if g_DEBUG_MODE is True:
                         print('Cannot locate face in {} -> Excluded from verification'.format(m.img_path()))
                     if g_LOGGER_ENABLE is True:
@@ -253,12 +255,15 @@ class FaceVerification(object):
 
         trimmed_list = []
         for idx, sub_list in enumerate(all_dists_tr):
-            tmp_trim = []
-            while len(tmp_trim) == 0:
-                tmp_trim = trim_list_std(sub_list, lower_std, upper_std)
-                lower_std += 0.05
-                upper_std += 0.02
-            trimmed_list.append(tmp_trim)
+            if len(sub_list) <= 1:
+                trimmed_list.append(sub_list)
+            else:
+                tmp_trim = []
+                while len(tmp_trim) == 0:
+                    tmp_trim = trim_list_std(sub_list, lower_std, upper_std)
+                    lower_std += 0.05
+                    upper_std += 0.02
+                trimmed_list.append(tmp_trim)
 
         avg_dists = []
         min_dists = []
@@ -584,7 +589,6 @@ class FaceVerification(object):
                 for item in result_dict:
                     dict_sum += result_dict[item][0]
                 unrec_ratio = result_dict['Unrecognised'][0] / dict_sum
-
                 if unrec_ratio >= g_UNRECOGNISED_RATIO:
                     final_name = 'Unrecognised'
                     final_min_dist = 0
