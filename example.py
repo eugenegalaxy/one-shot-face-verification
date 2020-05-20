@@ -83,18 +83,18 @@ if __name__ == "__main__":
     db_1 = path + '/face_recognition/images/manual_database'  # Option 1
     db_2 = path + '/face_recognition/images/mysql_database'   # Option 2
 
-    dir_path_1 = path + '/face_recognition/images/new_entries/jevgenijs_galaktionovs'
-    dir_path_2 = path + '/face_recognition/images/new_entries/jesper_bro'
-    dir_path_3 = path + '/face_recognition/images/new_entries/lelde_skrode'
-    dir_path_4 = path + '/face_recognition/images/new_entries/hugo_markoff'
-    dir_path_5 = path + '/face_recognition/images/new_entries/arnold'
-    dir_path_6 = path + '/face_recognition/images/new_entries/jevgenijs_galaktionovs/image_0001.jpg'
+    dir_path_1 = path + '/face_recognition/images/new_entries/jevgenijs_Galaktionovs'
+    dir_path_2 = path + '/face_recognition/images/new_entries/Jesper_Bro'
+    dir_path_3 = path + '/face_recognition/images/new_entries/Lelde_Skrode'
+    dir_path_4 = path + '/face_recognition/images/new_entries/Hugo_Markoff'
+    dir_path_5 = path + '/face_recognition/images/new_entries/Vladislavs_Vitkovskis'
+    dir_path_6 = path + '/face_recognition/images/new_entries/STRANGERS/Laura_Bush'
 
     ALL_FROM_DIRECTORY = 2
     SINGLE_IMAGE_PATH = 1
     FRESH_IMAGE = 0
 
-    tg_info, tg_images, times = verify_target(db_2, ALL_FROM_DIRECTORY, target=dir_path_4)
+    tg_info, tg_images, times = verify_target(db_2, ALL_FROM_DIRECTORY, target=dir_path_6)
     print_tg_info(tg_info)
 
     time_main_stop = time.time()
