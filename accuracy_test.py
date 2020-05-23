@@ -109,13 +109,15 @@ logging.basicConfig(filename=path + '/test_log.log',
 
 db1 = '/face_recognition/images/manual_database'  # Option 1
 db2 = '/face_recognition/images/mysql_database'   # Option 2
-chosen_database = db1
+chosen_database = db2
 FV = init_FaceRec(path + chosen_database)
-
+FV.plot_TSNE(FV.db_metadata, FV.db_features)
+exit
+print('ae')
 tg1 = '/face_recognition/images/new_entries'
 chosen_target = tg1
 
-RUNS = 100
+RUNS = 1
 
 avg_acc = []
 avg_prec = []

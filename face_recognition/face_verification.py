@@ -25,10 +25,10 @@ g_THRESHOLD_UNCERTAINTY = 0  # Offset to threshold. Decrease if strangers recogn
 
 # Rich DB
 
-g_KNN_or_SVC = 1  # 0 for KNN, 1 for SVC
-g_TARGET_TO_DB_NAME_lowerSTD = 4  # Don't go lower than 1
-g_TARGET_TO_DB_NAME_upperSTD = 4  # Don't go lower than 1
-g_UNRECOGNISED_RATIO = 1  # Ratio of unrecognised to others to count target = Unrecognized.
+g_KNN_or_SVC = 0  # 0 for KNN, 1 for SVC
+g_TARGET_TO_DB_NAME_lowerSTD = 2  # Don't go lower than 1
+g_TARGET_TO_DB_NAME_upperSTD = 2  # Don't go lower than 1
+g_UNRECOGNISED_RATIO = 0.8  # Ratio of unrecognised to others to count target = Unrecognized.
 
 # Poor DB
 g_WEIGHT_avg_dist = 0
@@ -146,7 +146,7 @@ class FaceVerification(object):
             assert directory_path is not None, 'Parameter directory_path is not provided in predict() \
                                                 (Selected mode: ALL_FROM_DIRECTORY)'
 
-            self.tg_metadata = load_metadata_short_TESTMODE(directory_path)
+            self.tg_metadata = load_metadata_short(directory_path)
             self.tg_features, self.tg_metadata = self.get_features_metadata(self.tg_metadata)
 
             if self.classifier_valid is True:
