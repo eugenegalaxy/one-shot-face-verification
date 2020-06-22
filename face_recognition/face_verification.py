@@ -5,10 +5,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import LinearSVC
 from sklearn.manifold import TSNE
 from sklearn.metrics import f1_score, accuracy_score
 from sklearn.preprocessing import LabelEncoder
-from sklearn.svm import LinearSVC
+
 
 from face_recognition.cnn_module.face_detect import AlignDlib  # Face alignment method
 from face_recognition.cnn_module.model import create_model  # CNN library
@@ -17,9 +19,24 @@ from face_recognition.directory_utils import load_metadata, load_metadata_short,
     retrieve_info, IdentityMetadata, IdentityMetadata_short, resize_img, trim_list_std
 
 
-g_THRESHOLD_UNCERTAINTY = 0.15  # Offset to threshold. Decrease is strangers recognized as identities
+#  Both DB
+g_THRESHOLD_UNCERTAINTY = 0  # Offset to threshold. Decrease if strangers recognized as identities
 
-g_DEBUG_MODE = False  # Debug mode. Enables prints.
+# Rich DB
+g_KNN_or_SVC = 0  # 0 for KNN, 1 for SVC
+g_TARGET_TO_DB_NAME_lowerSTD = 2  # Don't go lower than 1
+g_TARGET_TO_DB_NAME_upperSTD = 2  # Don't go lower than 1
+g_UNRECOGNISED_RATIO = 0.8  # Ratio of unrecognised to others to count target = Unrecognized.
+
+# Poor DB
+g_WEIGHT_avg_dist = 0.5
+g_WEIGHT_min_dist = 0.5
+g_DMv3_lowerSTD = 1
+g_DMv3_upperSTD = 3
+g_DEFAULT_THRESHOLD = 0.55  # Default recognition threshold.
+
+
+g_DEBUG_MODE = True  # Debug mode. Enables prints.
 g_LOGGER_ENABLE = False
 g_RS_CAM_AVAILABLE = False  # If Intel Real sense camera is connected, set to True. Set False for Webcamera.
 
@@ -47,10 +64,11 @@ class FaceVerification(object):
     weights_pt = path + '/cnn_module/weights/nn4.small2.v1.h5'
     landmarks_pt = path + '/cnn_module/models/landmarks.dat'
 
-    DEFAULT_THRESHOLD = 0.65  # Default recognition threshold.
     classifier_valid = False  # Variable that decides if classifier will be used (computed)
     SVC = None  # Classificator variable
-    SVC_encoder = None  # SVC encoder variable
+    KNN = None
+    classifier_encoder = None  # SVC or KNN encoder variable
+
     img_mode = None  # img Mode variable
 
     def __init__(self):
@@ -72,7 +90,8 @@ class FaceVerification(object):
     def initdb_and_classifier(self, path, tg_names=None):
         self.db_metadata = load_metadata(path, names=tg_names)
         self.db_features, self.db_metadata = self.get_features_metadata(self.db_metadata)
-        self.train_classifier_SVC(self.db_metadata, self.db_features)
+        self.train_classifier(self.db_metadata, self.db_features)
+        self.threshold = self.find_threshold(self.db_metadata, self.db_features)
 
     def setImgMode(self, img_mode):
         '''
@@ -129,8 +148,8 @@ class FaceVerification(object):
             self.tg_features, self.tg_metadata = self.get_features_metadata(self.tg_metadata)
 
             if self.classifier_valid is True:
-                threshold = self.find_threshold(self.db_metadata, self.db_features)
-                name, min_dist = self.compute_identity(self.tg_metadata, self.tg_features, threshold)
+                name, min_dist = self.compute_identity(self.tg_metadata, self.tg_features, self.threshold)
+
                 fresh_img = self.load_img(self.tg_metadata[0].img_path())
                 if name == 'Unrecognised':
                     tg_recognised = False
@@ -164,8 +183,10 @@ class FaceVerification(object):
                 tg_recognised = self.threshold_check(thr_min_dist)
                 if tg_recognised is True:
                     db_path = os.path.join(self.db_metadata[min_idx].base, self.db_metadata[min_idx].name)
+                    name = self.db_metadata[min_idx].name
 
         if tg_recognised is True:
+
             tg_info, db_imgs = retrieve_info(db_path)
             if g_DEBUG_MODE is True:
                 print("Target recognised as {0} with {1:1.3f} score. Language: {2} \
@@ -188,7 +209,6 @@ class FaceVerification(object):
                 img2 = img2[..., ::-1]
                 plt.imshow(img2)
                 plt.show()
-
             return tg_info, db_imgs
         else:
             if g_DEBUG_MODE is True:
@@ -257,24 +277,24 @@ class FaceVerification(object):
         else:
             return embedded, metadata
 
-    def decision_maker_v2(self, all_dists):
-        lowest_score = 5  # just a big number for distance scores
-        for idx1, item in enumerate(all_dists):
-            for idx2, score in enumerate(item):
-                if score < lowest_score:
-                    lowest_score = score
-                    lowest_score_idx = idx2
-                    lowest_img_idx = idx1
-        return lowest_score, lowest_score_idx, lowest_img_idx
-
     def decision_maker_v3(self, all_dists):
+        lower_std = g_DMv3_lowerSTD
+        upper_std = g_DMv3_upperSTD
         all_dists_trimmed = []
         all_dists = np.array(all_dists)
         all_dists_tr = np.transpose(all_dists)
 
         trimmed_list = []
         for idx, sub_list in enumerate(all_dists_tr):
-            trimmed_list.append(trim_list_std(sub_list, 1.5, 1))
+            if len(sub_list) <= 1:
+                trimmed_list.append(sub_list)
+            else:
+                tmp_trim = []
+                while len(tmp_trim) == 0:
+                    tmp_trim = trim_list_std(sub_list, lower_std, upper_std)
+                    lower_std += 0.05
+                    upper_std += 0.02
+                trimmed_list.append(tmp_trim)
 
         avg_dists = []
         min_dists = []
@@ -284,11 +304,9 @@ class FaceVerification(object):
 
         avg_dists_minus_thr_uncrt = [item - g_THRESHOLD_UNCERTAINTY for item in avg_dists]  # HACK
 
-        WEIGHT_avg_dist = 0.6
-        WEIGHT_min_dist = 0.4
         weighted_combined_list = []
         for x in range(len(avg_dists_minus_thr_uncrt)):
-            element_sum = (min_dists[x] * WEIGHT_min_dist) + (avg_dists_minus_thr_uncrt[x] * WEIGHT_avg_dist)
+            element_sum = (min_dists[x] * g_WEIGHT_min_dist) + (avg_dists_minus_thr_uncrt[x] * g_WEIGHT_avg_dist)
             weighted_combined_list.append(element_sum)
         if g_DEBUG_MODE is True:
             print('=========== Weighted-Combined scores ===========')
@@ -333,7 +351,7 @@ class FaceVerification(object):
         return np.sum(np.square(feature1 - feature2))
 
     def threshold_check(self, min_dist):
-        if min_dist > self.DEFAULT_THRESHOLD:
+        if min_dist > g_DEFAULT_THRESHOLD:
             return False
         else:
             return True
@@ -417,7 +435,7 @@ class FaceVerification(object):
         opt_idx = np.argmax(f1_scores)
         opt_tau = thresholds[opt_idx]  # Threshold at maximal F1 score
         opt_acc = accuracy_score(identical, distances < opt_tau)  # Accuracy at maximal F1 score
-        print('Accuracy {0:1.2f} at threshold {1:1.2f}.'.format(opt_tau, opt_acc))
+        print('Accuracy {0:1.2f} at threshold {1:1.2f}'.format(opt_acc, opt_tau))
 
         if plot:
             # Plot F1 score and accuracy as function of distance threshold
@@ -448,13 +466,13 @@ class FaceVerification(object):
 
         return opt_tau
 
-    def train_classifier_SVC(self, db_metadata, db_features):
+    def train_classifier(self, db_metadata, db_features):
         targets = np.array([m.name for m in db_metadata])
 
-        self.SVC_encoder = LabelEncoder()
-        self.SVC_encoder.fit(targets)
+        self.classifier_encoder = LabelEncoder()
+        self.classifier_encoder.fit(targets)
 
-        y = self.SVC_encoder.transform(targets)  # Numerical encoding of identities
+        y = self.classifier_encoder.transform(targets)  # Numerical encoding of identities
 
         # Test/Train ratio 50/50
         train_idx = np.arange(db_metadata.shape[0]) % 2 != 0
@@ -469,15 +487,24 @@ class FaceVerification(object):
         self.SVC.fit(X_train, y_train)
         acc_svc = accuracy_score(y_test, self.SVC.predict(X_test))
 
+        self.KNN = KNeighborsClassifier(n_neighbors=1, metric='euclidean')
+        self.KNN.fit(X_train, y_train)
+        acc_knn = accuracy_score(y_test, self.KNN.predict(X_test))
+
         metadata_root = (db_metadata[0].base).split('/')[-1]
-        print('SVM accuracy {0:1.2f} on {1}.'.format(acc_svc, metadata_root))
-        if acc_svc < 0.6:
-            print('SVM accuracy is too low. Classifier disabled. "Lowest Score" identification enabled.')
+        print('KNN accuracy = {0:1.4f}, SVM accuracy = {1:1.4f} on {2}'.format(acc_knn, acc_svc, metadata_root))
+        if acc_svc < 0.6 and acc_knn < 0.6:
+            print('SVM and KNN accuracies are too low. Classifier disabled. \n "Lowest Score" identification enabled.')
+        elif acc_svc > acc_knn:
+            g_KNN_or_SVC = 1
+            print('SVM classifier is activated.')
+            self.classifier_valid = True
         else:
-            print('SVC classification is enabled.')
+            g_KNN_or_SVC = 0
+            print('KNN classification is enabled.')
             self.classifier_valid = True
 
-    def predict_single_id_SVC(self, tg_metadata, tg_feature, threshold, plot=None):
+    def predict_single_id(self, tg_metadata, tg_feature, threshold, plot=None):
         '''
             1. Predict a single target entry from database
             2. Compute average distance from target entry to predicted database identity
@@ -485,8 +512,15 @@ class FaceVerification(object):
                 Return either identity name or 'Unrecognised'.
         '''
         img = self.load_img(tg_metadata.img_path())
-        prediction = self.SVC.predict(tg_feature)  # returns metadata ID
-        identity = self.SVC_encoder.inverse_transform(prediction)[0]
+        if g_KNN_or_SVC == 0:
+            ML = self.KNN
+        elif g_KNN_or_SVC == 1:
+            ML = self.SVC
+        else:
+            raise ValueError("Wrong 'g_KNN_or_SVC' value")
+
+        prediction = ML.predict(tg_feature)  # returns metadata ID
+        identity = self.classifier_encoder.inverse_transform(prediction)[0]
 
         avg_dist = self.avg_dist_tg_to_identity(tg_metadata, tg_feature, identity)
         if avg_dist < threshold + g_THRESHOLD_UNCERTAINTY:
@@ -503,7 +537,7 @@ class FaceVerification(object):
     def avg_dist_tg_to_identity(self, tg_metadata, tg_feature, db_person_name):
         '''
             1. Computes distance from one TARGET entry to all DATABASE entries of a Specific person(label).
-                                        img1    img2   img3  img4 (Database img)
+                                             img1    img2   img3  img4 (Database img)
                 Example result: distances = [0.8 ,   0.5,   0.3,  1.1]
             2. Removes outliers in distances list with specificed upper/lower standard deviation (std)
                 Example result: [0.8, 0.5]
@@ -513,6 +547,9 @@ class FaceVerification(object):
             return: avg_dist -> Average distance from a single target img to a database identity.
                 Example: jesper.jpg -> 0.56 distance to Jesper_Bro identitfy (8 imgs).
         '''
+        lower_std = g_TARGET_TO_DB_NAME_lowerSTD
+        upper_std = g_TARGET_TO_DB_NAME_upperSTD
+
         identify_db_paths = []
         identify_db_features = []
 
@@ -529,8 +566,6 @@ class FaceVerification(object):
             #     tg_metadata.file, dist, os.path.join(item.name, item.file)))
 
         if len(all_dists) > 1:
-            lower_std = 1
-            upper_std = 1
             all_dists_trimmed = []
             while len(all_dists_trimmed) == 0:
                 all_dists_trimmed = trim_list_std(all_dists, lower_std, upper_std)
@@ -554,7 +589,7 @@ class FaceVerification(object):
         features_reshaped = [item.reshape(1, -1) for item in tg_features]
 
         for x in range(len(features_reshaped)):
-            identity, avg_dist = self.predict_single_id_SVC(tg_metadata[x], features_reshaped[x], threshold)
+            identity, avg_dist = self.predict_single_id(tg_metadata[x], features_reshaped[x], threshold)
             identity_list.append(identity)
             avg_dist_list.append(avg_dist)
 
@@ -573,15 +608,26 @@ class FaceVerification(object):
         for item in result_dict:
             result_dict[item] = [len(result_dict[item]), (sum(result_dict[item]) / len(result_dict[item]))]
         # =========
-
         # CASE 1: If nothing has been recognised (only 'Unrecognised' key in dict)
         if len(result_dict) == 1 and 'Unrecognised' in result_dict:
             final_name = 'Unrecognised'
             final_min_dist = 0
+            return final_name, final_min_dist
         else:
             #  CASE 2: If dict contains identities AND 'Unrecognised' -> process with identities.
             if 'Unrecognised' in result_dict:
-                result_dict.pop('Unrecognised')
+
+                dict_sum = 0
+                largest_value = 0
+                for item in result_dict:
+                    dict_sum += result_dict[item][0]
+                unrec_ratio = result_dict['Unrecognised'][0] / dict_sum
+                if unrec_ratio >= g_UNRECOGNISED_RATIO:
+                    final_name = 'Unrecognised'
+                    final_min_dist = 0
+                    return final_name, final_min_dist
+                else:
+                    result_dict.pop('Unrecognised')
 
             largest_count = 0
             for item in result_dict:
