@@ -1,0 +1,28 @@
+============================================================================================
+Session Time:
+2020-05-20 20:13:29
+
+Number of runs: 100
+
+Databse: /face_recognition/images/mysql_database.
+Targets: /face_recognition/images/new_entries
+
+Note: the numbers do not sum up to 100 as those are averages of 100 runs.
+False Positive = 10
+False Negative = 22
+True Positive = 25
+True Negative = 40
+
+Accuracy = 0.67
+Precision = 0.72
+Recall = 0.53
+F1 Score =  0.61
+
+Hyper Parameters:
+g_THRESHOLD_UNCERTAINTY 0.1
+g_KNN_or_SVC 1
+g_TARGET_TO_DB_NAME_lowerSTD 4
+g_TARGET_TO_DB_NAME_upperSTD 4
+g_UNRECOGNISED_RATIO 1
+Session executed in 143.48 seconds.
+1.36 seconds per one interation.

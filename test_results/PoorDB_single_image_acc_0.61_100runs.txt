@@ -1,0 +1,29 @@
+============================================================================================
+Session Time:
+2020-05-20 20:37:24
+
+Number of runs: 100
+
+Databse: /face_recognition/images/manual_database.
+Targets: /face_recognition/images/new_entries
+
+Note: the numbers do not sum up to 100 as those are averages of 100 runs.
+False Positive = 9
+False Negative = 29
+True Positive = 18
+True Negative = 42
+
+Accuracy = 0.61
+Precision = 0.67
+Recall = 0.39
+F1 Score =  0.49
+
+Hyper Parameters:
+g_THRESHOLD_UNCERTAINTY 0
+g_WEIGHT_avg_dist 0
+g_WEIGHT_min_dist 1
+g_DMv3_lowerSTD 1
+g_DMv3_upperSTD 1
+g_DEFAULT_THRESHOLD 0.48
+Session executed in 62.93 seconds.
+0.59 seconds per one interation.
