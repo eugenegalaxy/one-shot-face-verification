@@ -112,7 +112,7 @@ class FaceVerification(object):
 
         Args:
             path (string): Path to a dataset
-            tg_names (anything but None, optional): Trigger to activate name printing of labeles from "path" dataset. Defaults to None.
+            tg_names (anything but None, optional): Trigger to activate name printing of labeles from "path" dataset.
         """
         self.db_metadata = load_metadata(path, names=tg_names)
         self.db_features, self.db_metadata = self.get_features_metadata(self.db_metadata)
@@ -277,7 +277,7 @@ class FaceVerification(object):
 
     def MID_train_classifier(self, db_metadata, db_features):
         """Trains KNN and SVM classifiers on a provided dataset and evaluates which classifier to choose.
-        If both classifiers have accuracy below 60%, "self.classifier_valid" will be False. Otherwise, 
+        If both classifiers have accuracy below 60%, "self.classifier_valid" will be False. Otherwise,
         "self.classifier_valid" is set to True and one of the classifiers is chosen.
 
         Args:
@@ -586,7 +586,7 @@ class FaceVerification(object):
 
         Returns:
             embedded (list): 128-dimensional list of values, FEATURES, of some image, produced by the CNN!
-            metadata (list): Filtered list of "IdentityMetadata" class objects, 
+            metadata (list): Filtered list of "IdentityMetadata" class objects,
                 where entries that align_face failed to locate a locate were removed.
         """
         embedded = np.zeros((metadata.shape[0], 128))
@@ -626,7 +626,7 @@ class FaceVerification(object):
         return img
 
     def align_img(self, img):
-        """ Locate largest face on an image, get face keypoints and crop/align the image. 
+        """ Locate largest face on an image, get face keypoints and crop/align the image.
         Note: This a mandatory preparation step before using our CNN!
 
         Args:
