@@ -22,7 +22,7 @@ def verify_target(database, img_mode, target=None, ):
 
     # STEP 2: Initilalise photo database
     time1 = time.time()
-    FV.initdb_and_classifier(database)
+    FV.initialiseDatabase(database)
     time1_stop = time.time()
     # FV.plot_TSNE(FV.db_metadata, FV.db_features)
     # STEP 3: Choose image acquisition mode (RECOMMENDED Mode 2)
@@ -105,7 +105,7 @@ if __name__ == "__main__":
         print('\n========================= Execution Times ===========================')
         print('Module imports executed in {0:1.2f} seconds.'.format(impo_time))
         print('FV = FaceVerification() executed in {0:1.2f} seconds.'.format(times[0]))
-        print('FV.initdb_and_classifier() executed in {0:1.2f} seconds.'.format(times[1]))
+        print('FV.initialiseDatabase() executed in {0:1.2f} seconds.'.format(times[1]))
         print('FV.predict() executed in {0:1.2f} seconds.'.format(times[2]))
         print('Program executed in {0:1.2f} seconds.'.format(main_time))
         print('Total time is {0:1.2f} seconds.'.format(impo_time + main_time))

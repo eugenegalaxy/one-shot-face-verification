@@ -52,7 +52,7 @@ if g_LOGGER_ENABLE is True:
 
 
 class FaceVerification(object):
-
+    
     path = os.path.dirname(os.path.abspath(__file__))
 
     if g_LOGGER_ENABLE is True:
@@ -81,16 +81,20 @@ class FaceVerification(object):
             if self.pipeline in locals():
                 self.pipeline.stop()
 
+    # ================================================================
+    # ==================== PUBLIC FUNCTIONS ==========================
+    # ================================================================
+
     def getImg(self, save_path=None):
         return getImg(save_path=save_path)
 
     def getManyImg(self, numberImg, time_interval_sec, save_path):
         return getManyImg(numberImg, time_interval_sec, save_path)
 
-    def initdb_and_classifier(self, path, tg_names=None):
+    def initialiseDatabase(self, path, tg_names=None):
         self.db_metadata = load_metadata(path, names=tg_names)
         self.db_features, self.db_metadata = self.get_features_metadata(self.db_metadata)
-        self.train_classifier(self.db_metadata, self.db_features)
+        self.MID_train_classifier(self.db_metadata, self.db_features)
         self.threshold = self.find_threshold(self.db_metadata, self.db_features)
 
     def setImgMode(self, img_mode):
@@ -128,7 +132,7 @@ class FaceVerification(object):
             if type(tg_features) == int:
                 raise TypeError('Cannot detect face on a fresh image...')
 
-            all_dist, min_dist, min_idx = self.dist_tg_to_db(tg_features)
+            all_dist, min_dist, min_idx = self.SID_dist_tg_to_db(tg_features)
 
             tg_recognised = self.threshold_check(min_dist)
             if tg_recognised is True:
@@ -148,7 +152,7 @@ class FaceVerification(object):
             self.tg_features, self.tg_metadata = self.get_features_metadata(self.tg_metadata)
 
             if self.classifier_valid is True:
-                name, min_dist = self.compute_identity(self.tg_metadata, self.tg_features, self.threshold)
+                name, min_dist = self.MID_compute_identity(self.tg_metadata, self.tg_features, self.threshold)
 
                 fresh_img = self.load_img(self.tg_metadata[0].img_path())
                 if name == 'Unrecognised':
@@ -164,8 +168,8 @@ class FaceVerification(object):
                 min_dists = np.zeros(len(self.tg_features))
                 min_idxs = np.zeros(len(self.tg_features))
                 for idx, item in enumerate(self.tg_features):
-                    all_dists[idx], min_dists[idx], min_idxs[idx] = self.dist_tg_to_db(item)
-                thr_min_dist, min_idx, img_idx = self.decision_maker_v3(all_dists)
+                    all_dists[idx], min_dists[idx], min_idxs[idx] = self.SID_dist_tg_to_db(item)
+                thr_min_dist, min_idx, img_idx = self.SID_decision_maker(all_dists)
 
                 min_dist = min_dists[img_idx]  # NOTE Crappy name -> consisency with plotting names
                 fresh_img = self.tg_metadata[img_idx]  # NOTE: Crappy name -> consisency with other img_mode cases
@@ -234,6 +238,256 @@ class FaceVerification(object):
             }
             return tg_info, []
 
+    # ================================================================
+    # ============= MULTI-IMAGE DATABASE (MID) FUNCTIONS =============
+    # ================================================================
+
+    def MID_train_classifier(self, db_metadata, db_features):
+        targets = np.array([m.name for m in db_metadata])
+
+        self.classifier_encoder = LabelEncoder()
+        self.classifier_encoder.fit(targets)
+
+        y = self.classifier_encoder.transform(targets)  # Numerical encoding of identities
+
+        # Test/Train ratio 50/50
+        train_idx = np.arange(db_metadata.shape[0]) % 2 != 0
+        test_idx = np.arange(db_metadata.shape[0]) % 2 == 0
+
+        X_train = db_features[train_idx]
+        X_test = db_features[test_idx]
+        y_train = y[train_idx]
+        y_test = y[test_idx]
+
+        self.SVC = LinearSVC()
+        self.SVC.fit(X_train, y_train)
+        acc_svc = accuracy_score(y_test, self.SVC.predict(X_test))
+
+        self.KNN = KNeighborsClassifier(n_neighbors=1, metric='euclidean')
+        self.KNN.fit(X_train, y_train)
+        acc_knn = accuracy_score(y_test, self.KNN.predict(X_test))
+
+        metadata_root = (db_metadata[0].base).split('/')[-1]
+        print('KNN accuracy = {0:1.4f}, SVM accuracy = {1:1.4f} on {2}'.format(acc_knn, acc_svc, metadata_root))
+        if acc_svc < 0.6 and acc_knn < 0.6:
+            print('SVM and KNN accuracies are too low. Classifier disabled. \n "Lowest Score" identification enabled.')
+        elif acc_svc > acc_knn:
+            g_KNN_or_SVC = 1
+            print('SVM classifier is activated.')
+            self.classifier_valid = True
+        else:
+            g_KNN_or_SVC = 0
+            print('KNN classification is enabled.')
+            self.classifier_valid = True
+
+    def MID_avg_dist_tg_to_identity(self, tg_metadata, tg_feature, db_person_name):
+        '''
+            1. Computes distance from one TARGET entry to all DATABASE entries of a Specific person(label).
+                                             img1    img2   img3  img4 (Database img)
+                Example result: distances = [0.8 ,   0.5,   0.3,  1.1]
+            2. Removes outliers in distances list with specificed upper/lower standard deviation (std)
+                Example result: [0.8, 0.5]
+            3. Computes Average value of all remaining distances.
+                Example result: 0.75
+
+            return: avg_dist -> Average distance from a single target img to a database identity.
+                Example: jesper.jpg -> 0.56 distance to Jesper_Bro identitfy (8 imgs).
+        '''
+        lower_std = g_TARGET_TO_DB_NAME_lowerSTD
+        upper_std = g_TARGET_TO_DB_NAME_upperSTD
+
+        identify_db_paths = []
+        identify_db_features = []
+
+        for idx, item in enumerate(self.db_metadata):
+            if item.name == db_person_name:
+                identify_db_paths.append(item)
+                identify_db_features.append(self.db_features[idx])
+
+        all_dists = []
+        for idx, item in enumerate(identify_db_paths):
+            dist = self.distance(tg_feature, identify_db_features[idx])
+            all_dists.append(dist)
+            # print('File {0} has {1:1.4f} distance with {2}'.format(
+            #     tg_metadata.file, dist, os.path.join(item.name, item.file)))
+
+        if len(all_dists) > 1:
+            all_dists_trimmed = []
+            while len(all_dists_trimmed) == 0:
+                all_dists_trimmed = trim_list_std(all_dists, lower_std, upper_std)
+                lower_std += 0.01
+                upper_std += 0.01
+
+            avg_dist = sum(all_dists_trimmed) / len(all_dists_trimmed)
+        else:
+            avg_dist = sum(all_dists) / len(all_dists)
+
+        return avg_dist
+
+    def MID_predict_single_id(self, tg_metadata, tg_feature, threshold, plot=None):
+        '''
+            1. Predict a single target entry from database
+            2. Compute average distance from target entry to predicted database identity
+            3. Compare average distance to threshold (with some uncertaincy margin)
+                Return either identity name or 'Unrecognised'.
+        '''
+        img = self.load_img(tg_metadata.img_path())
+        if g_KNN_or_SVC == 0:
+            ML = self.KNN
+        elif g_KNN_or_SVC == 1:
+            ML = self.SVC
+        else:
+            raise ValueError("Wrong 'g_KNN_or_SVC' value")
+
+        prediction = ML.predict(tg_feature)  # returns metadata ID
+        identity = self.classifier_encoder.inverse_transform(prediction)[0]
+
+        avg_dist = self.MID_avg_dist_tg_to_identity(tg_metadata, tg_feature, identity)
+        if avg_dist < threshold + g_THRESHOLD_UNCERTAINTY:
+            # print('Target {0} recognised {1}'.format(metadata.file, identity))
+            if plot:
+                plt.imshow(img)
+                plt.title('recognised as {0}'.format(identity))
+                plt.show()
+            return identity, avg_dist
+        else:
+            # print('Target unrecognised')
+            return 'Unrecognised', 0
+
+    def MID_compute_identity(self, tg_metadata, tg_features, threshold):
+        '''
+            1. Predicts every entry in target metadata
+            2. Builds dictionary with recognised identities, frequency and average distance.
+            3. Selects the most fitting identity. Frequency > Average Distance.
+        '''
+        identity_list = []
+        avg_dist_list = []
+        features_reshaped = [item.reshape(1, -1) for item in tg_features]
+
+        for x in range(len(features_reshaped)):
+            identity, avg_dist = self.MID_predict_single_id(tg_metadata[x], features_reshaped[x], threshold)
+            identity_list.append(identity)
+            avg_dist_list.append(avg_dist)
+
+        identity_list, avg_dist_list = zip(*sorted(zip(identity_list, avg_dist_list)))  # Sort two lists in sync
+        identity_list, avg_dist_list = (list(t) for t in zip(*sorted(zip(identity_list, avg_dist_list))))
+
+        # ====== Getting frequency & average distance for each identity that was recognised
+        result_dict = {}
+        for idx, item in enumerate(identity_list):
+            if item not in result_dict.keys():
+                result_dict[item] = []
+
+            if item in result_dict.keys():
+                result_dict[item].append(avg_dist_list[idx])
+
+        for item in result_dict:
+            result_dict[item] = [len(result_dict[item]), (sum(result_dict[item]) / len(result_dict[item]))]
+        # =========
+        # CASE 1: If nothing has been recognised (only 'Unrecognised' key in dict)
+        if len(result_dict) == 1 and 'Unrecognised' in result_dict:
+            final_name = 'Unrecognised'
+            final_min_dist = 0
+            return final_name, final_min_dist
+        else:
+            #  CASE 2: If dict contains identities AND 'Unrecognised' -> process with identities.
+            if 'Unrecognised' in result_dict:
+
+                dict_sum = 0
+                largest_value = 0
+                for item in result_dict:
+                    dict_sum += result_dict[item][0]
+                unrec_ratio = result_dict['Unrecognised'][0] / dict_sum
+                if unrec_ratio >= g_UNRECOGNISED_RATIO:
+                    final_name = 'Unrecognised'
+                    final_min_dist = 0
+                    return final_name, final_min_dist
+                else:
+                    result_dict.pop('Unrecognised')
+
+            largest_count = 0
+            for item in result_dict:
+                #  CASE 3: If dict contains more than 1 recognised target -> pick one with more photos recognised.
+                if result_dict[item][0] > largest_count:
+                    largest_count = result_dict[item][0]
+                    final_name = item
+                    final_min_dist = result_dict[item][1]
+                #  CASE 4: If dict contains more than 1 recognised target with SAME number
+                #  of recognised photos -> pick smallest avg dist
+                elif result_dict[item][0] == largest_count:
+                    print('whoops, {0} and {1} have the same number of recognised photos. \
+                           Take smallest avg distance.'.format(item, final_name))
+                    min_avg_dist = min(result_dict[item][1], result_dict[final_name][1])
+                    if min_avg_dist == result_dict[item][1]:
+                        largest_count = result_dict[item][0]
+                        final_name = item
+                        final_min_dist = result_dict[item][1]
+                    else:
+                        largest_count = result_dict[final_name][0]
+        return final_name, final_min_dist
+
+    # ================================================================
+    # ============= SINGLE-IMAGE DATABASE (SID) FUNCTIONS ============
+    # ================================================================
+
+    def SID_decision_maker(self, all_dists):
+        lower_std = g_DMv3_lowerSTD
+        upper_std = g_DMv3_upperSTD
+        all_dists_trimmed = []
+        all_dists = np.array(all_dists)
+        all_dists_tr = np.transpose(all_dists)
+
+        trimmed_list = []
+        for idx, sub_list in enumerate(all_dists_tr):
+            if len(sub_list) <= 1:
+                trimmed_list.append(sub_list)
+            else:
+                tmp_trim = []
+                while len(tmp_trim) == 0:
+                    tmp_trim = trim_list_std(sub_list, lower_std, upper_std)
+                    lower_std += 0.05
+                    upper_std += 0.02
+                trimmed_list.append(tmp_trim)
+
+        avg_dists = []
+        min_dists = []
+        for sub_list in trimmed_list:
+            avg_dists.append(sum(sub_list) / len(sub_list))
+            min_dists.append(min(sub_list))
+
+        avg_dists_minus_thr_uncrt = [item - g_THRESHOLD_UNCERTAINTY for item in avg_dists]  # HACK
+
+        weighted_combined_list = []
+        for x in range(len(avg_dists_minus_thr_uncrt)):
+            element_sum = (min_dists[x] * g_WEIGHT_min_dist) + (avg_dists_minus_thr_uncrt[x] * g_WEIGHT_avg_dist)
+            weighted_combined_list.append(element_sum)
+        if g_DEBUG_MODE is True:
+            print('=========== Weighted-Combined scores ===========')
+            print(weighted_combined_list)
+        lowest_score = min(weighted_combined_list)
+        lowest_db_id = weighted_combined_list.index(lowest_score)
+        lowest_tg_id_tmp = np.where(all_dists_tr[lowest_db_id] == min(all_dists_tr[lowest_db_id]))
+        lowest_tg_id = lowest_tg_id_tmp[0][0]
+        return lowest_score, lowest_db_id, lowest_tg_id
+
+    def SID_dist_tg_to_db(self, features):
+        distances = []  # squared L2 distance between pairs
+        for i in range(len(self.db_features)):
+            distances.append(self.distance(self.db_features[i], features))
+        distances = np.array(distances)
+
+        min_dist = min(i for i in distances if i > 0)
+        # min_dist = np.amin(distances)
+
+        tmp_min_idx = np.where(distances == min_dist)
+        min_idx = tmp_min_idx[0][0]
+
+        return distances, min_dist, min_idx
+
+    # ================================================================
+    # =================== COMMON FUNCTIONS ===========================
+    # ================================================================
+
     def get_features_img(self, img):
         embedded = np.zeros(128)
         if img.shape[0] > 500:
@@ -276,60 +530,6 @@ class FaceVerification(object):
             raise ValueError('Cannot not locate face on any of the imgs')
         else:
             return embedded, metadata
-
-    def decision_maker_v3(self, all_dists):
-        lower_std = g_DMv3_lowerSTD
-        upper_std = g_DMv3_upperSTD
-        all_dists_trimmed = []
-        all_dists = np.array(all_dists)
-        all_dists_tr = np.transpose(all_dists)
-
-        trimmed_list = []
-        for idx, sub_list in enumerate(all_dists_tr):
-            if len(sub_list) <= 1:
-                trimmed_list.append(sub_list)
-            else:
-                tmp_trim = []
-                while len(tmp_trim) == 0:
-                    tmp_trim = trim_list_std(sub_list, lower_std, upper_std)
-                    lower_std += 0.05
-                    upper_std += 0.02
-                trimmed_list.append(tmp_trim)
-
-        avg_dists = []
-        min_dists = []
-        for sub_list in trimmed_list:
-            avg_dists.append(sum(sub_list) / len(sub_list))
-            min_dists.append(min(sub_list))
-
-        avg_dists_minus_thr_uncrt = [item - g_THRESHOLD_UNCERTAINTY for item in avg_dists]  # HACK
-
-        weighted_combined_list = []
-        for x in range(len(avg_dists_minus_thr_uncrt)):
-            element_sum = (min_dists[x] * g_WEIGHT_min_dist) + (avg_dists_minus_thr_uncrt[x] * g_WEIGHT_avg_dist)
-            weighted_combined_list.append(element_sum)
-        if g_DEBUG_MODE is True:
-            print('=========== Weighted-Combined scores ===========')
-            print(weighted_combined_list)
-        lowest_score = min(weighted_combined_list)
-        lowest_db_id = weighted_combined_list.index(lowest_score)
-        lowest_tg_id_tmp = np.where(all_dists_tr[lowest_db_id] == min(all_dists_tr[lowest_db_id]))
-        lowest_tg_id = lowest_tg_id_tmp[0][0]
-        return lowest_score, lowest_db_id, lowest_tg_id
-
-    def dist_tg_to_db(self, features):
-        distances = []  # squared L2 distance between pairs
-        for i in range(len(self.db_features)):
-            distances.append(self.distance(self.db_features[i], features))
-        distances = np.array(distances)
-
-        min_dist = min(i for i in distances if i > 0)
-        # min_dist = np.amin(distances)
-
-        tmp_min_idx = np.where(distances == min_dist)
-        min_idx = tmp_min_idx[0][0]
-
-        return distances, min_dist, min_idx
 
     def load_img(self, path):
         img = cv2.imread(path, 1)
@@ -465,187 +665,3 @@ class FaceVerification(object):
             plt.show()
 
         return opt_tau
-
-    def train_classifier(self, db_metadata, db_features):
-        targets = np.array([m.name for m in db_metadata])
-
-        self.classifier_encoder = LabelEncoder()
-        self.classifier_encoder.fit(targets)
-
-        y = self.classifier_encoder.transform(targets)  # Numerical encoding of identities
-
-        # Test/Train ratio 50/50
-        train_idx = np.arange(db_metadata.shape[0]) % 2 != 0
-        test_idx = np.arange(db_metadata.shape[0]) % 2 == 0
-
-        X_train = db_features[train_idx]
-        X_test = db_features[test_idx]
-        y_train = y[train_idx]
-        y_test = y[test_idx]
-
-        self.SVC = LinearSVC()
-        self.SVC.fit(X_train, y_train)
-        acc_svc = accuracy_score(y_test, self.SVC.predict(X_test))
-
-        self.KNN = KNeighborsClassifier(n_neighbors=1, metric='euclidean')
-        self.KNN.fit(X_train, y_train)
-        acc_knn = accuracy_score(y_test, self.KNN.predict(X_test))
-
-        metadata_root = (db_metadata[0].base).split('/')[-1]
-        print('KNN accuracy = {0:1.4f}, SVM accuracy = {1:1.4f} on {2}'.format(acc_knn, acc_svc, metadata_root))
-        if acc_svc < 0.6 and acc_knn < 0.6:
-            print('SVM and KNN accuracies are too low. Classifier disabled. \n "Lowest Score" identification enabled.')
-        elif acc_svc > acc_knn:
-            g_KNN_or_SVC = 1
-            print('SVM classifier is activated.')
-            self.classifier_valid = True
-        else:
-            g_KNN_or_SVC = 0
-            print('KNN classification is enabled.')
-            self.classifier_valid = True
-
-    def predict_single_id(self, tg_metadata, tg_feature, threshold, plot=None):
-        '''
-            1. Predict a single target entry from database
-            2. Compute average distance from target entry to predicted database identity
-            3. Compare average distance to threshold (with some uncertaincy margin)
-                Return either identity name or 'Unrecognised'.
-        '''
-        img = self.load_img(tg_metadata.img_path())
-        if g_KNN_or_SVC == 0:
-            ML = self.KNN
-        elif g_KNN_or_SVC == 1:
-            ML = self.SVC
-        else:
-            raise ValueError("Wrong 'g_KNN_or_SVC' value")
-
-        prediction = ML.predict(tg_feature)  # returns metadata ID
-        identity = self.classifier_encoder.inverse_transform(prediction)[0]
-
-        avg_dist = self.avg_dist_tg_to_identity(tg_metadata, tg_feature, identity)
-        if avg_dist < threshold + g_THRESHOLD_UNCERTAINTY:
-            # print('Target {0} recognised {1}'.format(metadata.file, identity))
-            if plot:
-                plt.imshow(img)
-                plt.title('recognised as {0}'.format(identity))
-                plt.show()
-            return identity, avg_dist
-        else:
-            # print('Target unrecognised')
-            return 'Unrecognised', 0
-
-    def avg_dist_tg_to_identity(self, tg_metadata, tg_feature, db_person_name):
-        '''
-            1. Computes distance from one TARGET entry to all DATABASE entries of a Specific person(label).
-                                             img1    img2   img3  img4 (Database img)
-                Example result: distances = [0.8 ,   0.5,   0.3,  1.1]
-            2. Removes outliers in distances list with specificed upper/lower standard deviation (std)
-                Example result: [0.8, 0.5]
-            3. Computes Average value of all remaining distances.
-                Example result: 0.75
-
-            return: avg_dist -> Average distance from a single target img to a database identity.
-                Example: jesper.jpg -> 0.56 distance to Jesper_Bro identitfy (8 imgs).
-        '''
-        lower_std = g_TARGET_TO_DB_NAME_lowerSTD
-        upper_std = g_TARGET_TO_DB_NAME_upperSTD
-
-        identify_db_paths = []
-        identify_db_features = []
-
-        for idx, item in enumerate(self.db_metadata):
-            if item.name == db_person_name:
-                identify_db_paths.append(item)
-                identify_db_features.append(self.db_features[idx])
-
-        all_dists = []
-        for idx, item in enumerate(identify_db_paths):
-            dist = self.distance(tg_feature, identify_db_features[idx])
-            all_dists.append(dist)
-            # print('File {0} has {1:1.4f} distance with {2}'.format(
-            #     tg_metadata.file, dist, os.path.join(item.name, item.file)))
-
-        if len(all_dists) > 1:
-            all_dists_trimmed = []
-            while len(all_dists_trimmed) == 0:
-                all_dists_trimmed = trim_list_std(all_dists, lower_std, upper_std)
-                lower_std += 0.01
-                upper_std += 0.01
-
-            avg_dist = sum(all_dists_trimmed) / len(all_dists_trimmed)
-        else:
-            avg_dist = sum(all_dists) / len(all_dists)
-
-        return avg_dist
-
-    def compute_identity(self, tg_metadata, tg_features, threshold):
-        '''
-            1. Predicts every entry in target metadata
-            2. Builds dictionary with recognised identities, frequency and average distance.
-            3. Selects the most fitting identity. Frequency > Average Distance.
-        '''
-        identity_list = []
-        avg_dist_list = []
-        features_reshaped = [item.reshape(1, -1) for item in tg_features]
-
-        for x in range(len(features_reshaped)):
-            identity, avg_dist = self.predict_single_id(tg_metadata[x], features_reshaped[x], threshold)
-            identity_list.append(identity)
-            avg_dist_list.append(avg_dist)
-
-        identity_list, avg_dist_list = zip(*sorted(zip(identity_list, avg_dist_list)))  # Sort two lists in sync
-        identity_list, avg_dist_list = (list(t) for t in zip(*sorted(zip(identity_list, avg_dist_list))))
-
-        # ====== Getting frequency & average distance for each identity that was recognised
-        result_dict = {}
-        for idx, item in enumerate(identity_list):
-            if item not in result_dict.keys():
-                result_dict[item] = []
-
-            if item in result_dict.keys():
-                result_dict[item].append(avg_dist_list[idx])
-
-        for item in result_dict:
-            result_dict[item] = [len(result_dict[item]), (sum(result_dict[item]) / len(result_dict[item]))]
-        # =========
-        # CASE 1: If nothing has been recognised (only 'Unrecognised' key in dict)
-        if len(result_dict) == 1 and 'Unrecognised' in result_dict:
-            final_name = 'Unrecognised'
-            final_min_dist = 0
-            return final_name, final_min_dist
-        else:
-            #  CASE 2: If dict contains identities AND 'Unrecognised' -> process with identities.
-            if 'Unrecognised' in result_dict:
-
-                dict_sum = 0
-                largest_value = 0
-                for item in result_dict:
-                    dict_sum += result_dict[item][0]
-                unrec_ratio = result_dict['Unrecognised'][0] / dict_sum
-                if unrec_ratio >= g_UNRECOGNISED_RATIO:
-                    final_name = 'Unrecognised'
-                    final_min_dist = 0
-                    return final_name, final_min_dist
-                else:
-                    result_dict.pop('Unrecognised')
-
-            largest_count = 0
-            for item in result_dict:
-                #  CASE 3: If dict contains more than 1 recognised target -> pick one with more photos recognised.
-                if result_dict[item][0] > largest_count:
-                    largest_count = result_dict[item][0]
-                    final_name = item
-                    final_min_dist = result_dict[item][1]
-                #  CASE 4: If dict contains more than 1 recognised target with SAME number
-                #  of recognised photos -> pick smallest avg dist
-                elif result_dict[item][0] == largest_count:
-                    print('whoops, {0} and {1} have the same number of recognised photos. \
-                           Take smallest avg distance.'.format(item, final_name))
-                    min_avg_dist = min(result_dict[item][1], result_dict[final_name][1])
-                    if min_avg_dist == result_dict[item][1]:
-                        largest_count = result_dict[item][0]
-                        final_name = item
-                        final_min_dist = result_dict[item][1]
-                    else:
-                        largest_count = result_dict[final_name][0]
-        return final_name, final_min_dist
