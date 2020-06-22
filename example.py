@@ -9,7 +9,7 @@ import time
 # elif '/opt/ros/kinetic/lib/python2.7/dist-packages' in sys.path:
 #     sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 time_import_start = time.time()
-from face_recognition.face_verification import FaceVerification
+from face_recognition.FaceVerification import FaceVerification
 time_import_stop = time.time()
 
 PRINT_EXECUTION_TIMES = False

@@ -36,7 +36,7 @@ g_DMv3_upperSTD = 3
 g_DEFAULT_THRESHOLD = 0.55  # Default recognition threshold.
 
 
-g_DEBUG_MODE = True  # Debug mode. Enables prints.
+g_DEBUG_MODE = False  # Debug mode. Enables prints.
 g_LOGGER_ENABLE = False
 g_RS_CAM_AVAILABLE = False  # If Intel Real sense camera is connected, set to True. Set False for Webcamera.
 
@@ -52,7 +52,7 @@ if g_LOGGER_ENABLE is True:
 
 
 class FaceVerification(object):
-    
+
     path = os.path.dirname(os.path.abspath(__file__))
 
     if g_LOGGER_ENABLE is True:
@@ -86,12 +86,34 @@ class FaceVerification(object):
     # ================================================================
 
     def getImg(self, save_path=None):
+        """Acquire 1 image.
+
+        Args:
+            save_path (string, optional): Path to save the image. Defaults to None.
+
+        Returns:
+            image object
+        """
         return getImg(save_path=save_path)
 
     def getManyImg(self, numberImg, time_interval_sec, save_path):
-        return getManyImg(numberImg, time_interval_sec, save_path)
+        """Capture number of images with interval and save it to a path.
+
+        Args:
+            numberImg (int): Number of images to capture
+            time_interval_sec (float): Interval between image capturing in seconds.
+            save_path (string): Path to save captured images.
+        """
+        getManyImg(numberImg, time_interval_sec, save_path)
 
     def initialiseDatabase(self, path, tg_names=None):
+        """Load metadata of a provided dataset (database), compute feature vectors for each metadata,
+        train classifier and evaluate accuracies, find an appropriate threshold for furher recognition.
+
+        Args:
+            path (string): Path to a dataset
+            tg_names (anything but None, optional): Trigger to activate name printing of labeles from "path" dataset. Defaults to None.
+        """
         self.db_metadata = load_metadata(path, names=tg_names)
         self.db_features, self.db_metadata = self.get_features_metadata(self.db_metadata)
         self.MID_train_classifier(self.db_metadata, self.db_features)
@@ -108,7 +130,18 @@ class FaceVerification(object):
         self.img_mode = img_mode
 
     def Predict(self, single_img_path=None, directory_path=None, plot=None):
+        """Main user function to recognise found victims against a provided database.
 
+        Args:
+            single_img_path (string, optional): Path to a single image. Use with setImgMode(1). Defaults to None.
+            directory_path (string, optional): Path to multiple images. Use with setImgMode(2). Defaults to None.
+            plot (anything but None, optional): Trigger to activate plotting of a recognition result. Defaults to None.
+
+
+        Returns:
+            tg_info: A dictionary of information about (un)recognised victim.
+            db_imgs: List of image paths of a recognised victim (ONLY if victim is recognised)
+        """
         assert (self.img_mode is not None), 'No img mode is selected. See FaceVerification.setImgMode() function.'
 
         if self.img_mode == 0 or self.img_mode == 1:
@@ -243,6 +276,14 @@ class FaceVerification(object):
     # ================================================================
 
     def MID_train_classifier(self, db_metadata, db_features):
+        """Trains KNN and SVM classifiers on a provided dataset and evaluates which classifier to choose.
+        If both classifiers have accuracy below 60%, "self.classifier_valid" will be False. Otherwise, 
+        "self.classifier_valid" is set to True and one of the classifiers is chosen.
+
+        Args:
+            db_metadata (np.array): List of "IdentityMetadata" objects. Database images.
+            db_features (np.array): 2D array of feature vectors for each "IdentityMetadata" object in db_metadata.
+        """
         targets = np.array([m.name for m in db_metadata])
 
         self.classifier_encoder = LabelEncoder()
@@ -431,6 +472,24 @@ class FaceVerification(object):
     # ================================================================
 
     def SID_decision_maker(self, all_dists):
+        """ Decision making function used in a single-image database method, when classifier is not available.
+        WARNING: This function is internal code function that is hard to explain. Just "trust me".
+
+        1. Outliers are trimmed off for each identity
+        2. Averages and minimum distnaces are computed for each identity
+        3. Avg and Min distances are weighted to create one final distance value.
+        4. Lowest distance final value is chosen as the recognised identity.
+
+        Args:
+            all_dists (list of lists): List of lists, where each element is a list containing similarity
+            distances from one target image to all database identities. "all_dists" is obtained
+            from "self.SID_dist_tg_to_db" function.
+
+        Returns:
+            lowest_score (int): Lowest distance (see above point 4.)
+            lowest_db_id (int): idx of database identity of the lowest score
+            lowest_tg_id (int): idx of target image of the lowest score
+        """
         lower_std = g_DMv3_lowerSTD
         upper_std = g_DMv3_upperSTD
         all_dists_trimmed = []
@@ -471,6 +530,18 @@ class FaceVerification(object):
         return lowest_score, lowest_db_id, lowest_tg_id
 
     def SID_dist_tg_to_db(self, features):
+        """ Compute distance (Euclidean Distance) from features of a target image
+        to each image in a database, contained in "db_features".
+
+        Args:
+            features (list): 128-dimensional list of values, FEATURES, of some image, produced by the CNN!
+
+        Returns:
+            distances (list of lists): List of lists, where each element is a list containing similarity distances
+                from one target image to all database identities.
+            min_dist (float): smallest value in "distances" list
+            min_idx (int): idx of a minimum distance in "distances" list
+        """
         distances = []  # squared L2 distance between pairs
         for i in range(len(self.db_features)):
             distances.append(self.distance(self.db_features[i], features))
@@ -489,6 +560,14 @@ class FaceVerification(object):
     # ================================================================
 
     def get_features_img(self, img):
+        """ Use "nn4_small2_pretrained" CNN to output a feature vector of a provided image.
+
+        Args:
+            img (image object): Image containing human face.
+
+        Returns:
+            list: 128-dimensional list of values, FEATURES, of some image, produced by the CNN!
+        """
         embedded = np.zeros(128)
         if img.shape[0] > 500:
             img = resize_img(img, adjust_to_width=500)
@@ -500,6 +579,16 @@ class FaceVerification(object):
         return embedded
 
     def get_features_metadata(self, metadata):
+        """ Use "nn4_small2_pretrained" CNN to output a feature vector of a provided metadata (path).
+
+        Args:
+            metadata (list): List of "IdentityMetadata" class objects.
+
+        Returns:
+            embedded (list): 128-dimensional list of values, FEATURES, of some image, produced by the CNN!
+            metadata (list): Filtered list of "IdentityMetadata" class objects, 
+                where entries that align_face failed to locate a locate were removed.
+        """
         embedded = np.zeros((metadata.shape[0], 128))
         embedded_flt = [0] * len(metadata)
         for i, m in enumerate(metadata):
@@ -537,6 +626,15 @@ class FaceVerification(object):
         return img
 
     def align_img(self, img):
+        """ Locate largest face on an image, get face keypoints and crop/align the image. 
+        Note: This a mandatory preparation step before using our CNN!
+
+        Args:
+            img (image object): Image to detect face and crop/align it.
+
+        Returns:
+            image object: Cropped and aligned face image
+        """
         imgDim = 96
         face_bounding_box = self.alig_model.getLargestFaceBoundingBox(img)
         if face_bounding_box is None:
@@ -547,7 +645,8 @@ class FaceVerification(object):
             return aligned_img
 
     def distance(self, feature1, feature2):
-        #  Sum of squared errors
+        """Compute Euclidean Distance between two vectors.
+        """
         return np.sum(np.square(feature1 - feature2))
 
     def threshold_check(self, min_dist):
@@ -557,6 +656,15 @@ class FaceVerification(object):
             return True
 
     def save_features_on_disk(self, metadata, features, overwrite_txt=None):
+        """ Save CNN-computed features of a face image into a text file.
+        Save it in the same directory as the source image.
+
+        Args:
+            features (list): 128-dimensional list of values, FEATURES, of some image, produced by the CNN!
+            metadata (IdentityMetadata class): Single "IdentityMetadata" class object.
+            overwrite_txt (anything but None, optional): Trigger to overwrite the feature vector in the text file.
+                Used to update values in the file. Defaults to None.
+        """
         features_str = str(features)
         if isinstance(metadata, IdentityMetadata):
             parent_path = os.path.join(metadata.base, metadata.name)
@@ -578,6 +686,14 @@ class FaceVerification(object):
                 file.close()
 
     def read_features_from_disk(self, metadata):
+        """Read CNN-computed features of a face image from a text file, located next to images from provided 'metadata'.
+
+        Args:
+            metadata (IdentityMetadata class): Single "IdentityMetadata" class object.
+
+        Returns:
+            list: 128-dimensional list of values, FEATURES, of some image, produced by the CNN!
+        """
         if isinstance(metadata, IdentityMetadata):
             parent_path = os.path.join(metadata.base, metadata.name)
         elif isinstance(metadata, IdentityMetadata_short):
@@ -605,6 +721,12 @@ class FaceVerification(object):
             return None
 
     def plot_TSNE(self, metadata, features):
+        """Plot TSNE graph of the provided dataset.
+
+        Args:
+            metadata (list): List of  "IdentityMetadata" class objects for a dataset. (use "load_metadata" function)
+            features (np.array): 2D array of feature vectors for each "IdentityMetadata" object in "metadata".
+        """
         targets = np.array([m.name for m in metadata])
         X_embedded = TSNE(n_components=2).fit_transform(features)
 
@@ -616,6 +738,17 @@ class FaceVerification(object):
         plt.show()
 
     def find_threshold(self, db_metadata, db_features, plot=None):
+        """ Compute optimal threshold for a given dataset (database) to
+        separate recognised identities from unrecognised strangers. Uses F1 score and Accuracy. Can be plotted.
+
+        Args:
+            db_metadata (np.array): List of "IdentityMetadata" objects. Database images.
+            db_features (np.array): 2D array of feature vectors for each "IdentityMetadata" object in db_metadata.
+            plot (anything but None, optional): Trigger to activate plot. Defaults to None.
+
+        Returns:
+            float: Optimal recognition threshold.
+        """
         distances = []  # squared L2 distance between pairs
         identical = []  # 1 if same identity, 0 otherwise
 

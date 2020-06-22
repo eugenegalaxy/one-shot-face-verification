@@ -2,7 +2,7 @@
 import cv2
 import pyrealsense2 as rs
 import numpy as np
-from face_recognition.directory_utils import *
+from face_recognition.directory_utils import dir_size_guard, generate_number_imgsave
 import time
 
 CAM_IMG_DIR_MAX_SIZE_MB = 200  # In megabytes!!
@@ -77,7 +77,8 @@ def getImg_realsense(save_path=None, plot=None):
     return image
 
 
-def getManyImg_webcam(numberImg, time_interval_sec, save_path):  # TODO: Not tested if works fine with IntelReal Sense
+def getManyImg_webcam(numberImg, time_interval_sec, save_path):
+    # TODO: Not tested if works fine with IntelReal Sense
     img_counter = 0
     for x in range(numberImg):
         getImg_webcam(save_path=save_path)
@@ -87,7 +88,8 @@ def getManyImg_webcam(numberImg, time_interval_sec, save_path):  # TODO: Not tes
         time.sleep(time_interval_sec)
 
 
-def getManyImg_realsense(numberImg, time_interval_sec, save_path):  # TODO: Not tested if works fine with IntelReal Sense
+def getManyImg_realsense(numberImg, time_interval_sec, save_path):
+    # TODO: Not tested if works fine with IntelReal Sense
     img_counter = 0
     for x in range(numberImg):
         getImg_realsense(save_path=save_path)

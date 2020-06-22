@@ -354,7 +354,7 @@ def dir_clear(path, save_one_file=None):
 
     Args:
         path (string): Path to a directory
-        save_one_file (anything but None, optional): Keep one file alive so git will keep track of the directory. Defaults to None.
+        save_one_file (anything but None, optional): Keep one file alive so git will keep track of the directory.
     """
     file_list = sorted(os.listdir(path))
     if save_one_file is not None:
