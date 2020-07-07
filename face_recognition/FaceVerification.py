@@ -36,7 +36,7 @@ g_DMv3_upperSTD = 3
 g_DEFAULT_THRESHOLD = 0.55  # Default recognition threshold.
 
 
-g_DEBUG_MODE = False  # Debug mode. Enables prints.
+g_DEBUG_MODE = True  # Debug mode. Enables prints.
 g_LOGGER_ENABLE = False
 g_RS_CAM_AVAILABLE = False  # If Intel Real sense camera is connected, set to True. Set False for Webcamera.
 

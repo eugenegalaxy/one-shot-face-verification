@@ -89,12 +89,13 @@ if __name__ == "__main__":
     dir_path_4 = path + '/face_recognition/images/new_entries/hugo_markoff'
     dir_path_5 = path + '/face_recognition/images/new_entries/arnold'
     dir_path_6 = path + '/face_recognition/images/new_entries/jevgenijs_galaktionovs/image_0001.jpg'
+    dir_path_7 = path + '/face_recognition/images/new_entries/hugo_video'
 
     ALL_FROM_DIRECTORY = 2
     SINGLE_IMAGE_PATH = 1
     FRESH_IMAGE = 0
 
-    tg_info, tg_images, times = verify_target(db_2, ALL_FROM_DIRECTORY, target=dir_path_4)
+    tg_info, tg_images, times = verify_target(db_2, ALL_FROM_DIRECTORY, target=dir_path_7)
     print_tg_info(tg_info)
 
     time_main_stop = time.time()
